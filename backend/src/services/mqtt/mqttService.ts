@@ -1,0 +1,366 @@
+import { DeviceRecord } from "~/entities/device-record.entity";
+import { Device } from "~/entities/device.entity";
+import { SocketService } from "../socket";
+import {
+  ActionStatus,
+  DeviceFieldType,
+  DeviceType,
+  SceneStatus,
+} from "~/utils/enum";
+import { float32, int32 } from "zod";
+import { Int32 } from "typeorm";
+import { DeviceModel, IDeviceModel } from "~/entities/device-model.entity";
+import { ConditionService } from "../condition";
+import { Action, IAction } from "~/entities/automatic-scene-action.entity";
+import { AutomationScene } from "~/entities/automatic-scene.entity";
+import {
+  handleWriteCommandGet,
+  handleWriteCommandJson,
+  handleWriteCommandSet,
+} from "./mqttConnection";
+import { telegramService } from "..";
+import { INotificationOption } from "~/entities/notification-option.entity";
+import { TelegramAccount } from "~/entities/telegram-account.entity";
+import { t } from "~/utils/i18n/i18n";
+import { DeviceConnectionLog } from "~/entities/device-connection-log.entity";
+import { env } from "~/utils";
+import { logger } from "~/utils/logger";
+import { Types } from "mongoose";
+
+export interface SensorDataConditionProcesss {
+  key: string;
+  value: string | number | boolean;
+}
+
+export interface DeviceSettingInfoResponse {
+  deviceId: string;
+  ip: string;
+  ssid: string;
+  password: string;
+  fwVersion: string;
+}
+
+export interface DeviceConnectionLogMessage {
+  deviceId: string;
+  secret: string;
+  deviceModel: string;
+  firmware?: string;
+  ip?: string;
+}
+
+export type PairingBridgeCommand =
+  | "pairing.sync"
+  | "pairing.reset"
+  | "pairing.reconnectMQTT";
+
+export class MqttService {
+  private socketService: SocketService;
+  private conditionService: ConditionService;
+  constructor() {
+    this.socketService = new SocketService();
+    this.conditionService = new ConditionService();
+  }
+  handleTetelemetry = async (
+    zoneId: string,
+    deviceId: string,
+    value: string,
+    telemetrySuffix?: string,
+  ) => {
+    if (!Types.ObjectId.isValid(deviceId)) {
+      logger.warn("Skip telemetry for invalid device ObjectId", {
+        zoneId,
+        deviceId,
+      });
+      return;
+    }
+
+    const findDevice = await Device.findOne({ _id: deviceId })
+      .populate("zone")
+      .populate("group")
+      .populate("deviceModel");
+    if (findDevice && findDevice.deviceModel) {
+      const arrStringValue = value.split("|");
+      if (arrStringValue.length > 0) {
+        const valueInsert: SensorDataConditionProcesss[] = [];
+        for (const item of arrStringValue) {
+          const arrKeyValue = item.split(":");
+          valueInsert.push({
+            key: arrKeyValue[0],
+            value: arrKeyValue[1],
+          });
+        }
+
+        const ts = Date.now().valueOf();
+        const insert = await DeviceRecord.insertOne({
+          deviceId: deviceId,
+          values: valueInsert,
+        });
+        if (telemetrySuffix === "action") {
+          await this.processSensorValue(deviceId, valueInsert);
+        }
+        // ========================
+
+        // console.log("------",deviceId, valueInsert, insert, check);
+        this.socketService.sendIotDataTelemetry({
+          id: deviceId,
+          ts: ts,
+          devices: valueInsert,
+          deviceModelName: (findDevice.deviceModel as unknown as IDeviceModel)
+            .name,
+        });
+      }
+    }
+    return;
+  };
+
+  handlResponse = async (
+    zoneId: string,
+    deviceId: string,
+    commandId: string,
+    value: string,
+  ) => {
+    if (!Types.ObjectId.isValid(deviceId)) {
+      logger.warn("Skip response for invalid device ObjectId", {
+        zoneId,
+        deviceId,
+        commandId,
+      });
+      return;
+    }
+
+    const findDevice = await Device.findOne({ _id: deviceId })
+      .populate("zone")
+      .populate("group")
+      .populate("deviceModel");
+    console.log("Response from device:", deviceId, "with value:", value);
+    if (findDevice && findDevice.deviceModel) {
+      const arrStringValue = value.split("|");
+      const deviceModel = findDevice.deviceModel as unknown as IDeviceModel;
+      const valueType = deviceModel.fields[0].valueType;
+
+      if (arrStringValue.length > 0) {
+        const key = arrStringValue[0];
+        const value = arrStringValue[1];
+        const ts = Date.now().valueOf();
+        this.socketService.sendIotDataResponse({
+          id: deviceId,
+          ts: ts,
+          template: deviceModel.template,
+          field: {
+            key: key,
+            value: typeCast(value, valueType),
+            valueType: valueType,
+          },
+        });
+      }
+    }
+    return;
+  };
+
+  handleSettingGetResponse = async (
+    zoneId: string,
+    deviceId: string,
+    value: string,
+  ) => {
+    if (!Types.ObjectId.isValid(deviceId)) {
+      logger.warn("Skip setting response for invalid device ObjectId", {
+        zoneId,
+        deviceId,
+      });
+      return;
+    }
+
+    const findDevice = await Device.findOne({ _id: deviceId })
+      .populate("zone")
+      .populate("group")
+      .populate("deviceModel");
+
+    if (!findDevice || !findDevice.deviceModel) {
+      return;
+    }
+
+    const parsed = JSON.parse(value) as DeviceSettingInfoResponse;
+    const ts = Date.now().valueOf();
+
+    this.socketService.sendDeviceSettingInfo({
+      id: deviceId,
+      ts,
+      setting: {
+        deviceId: parsed.deviceId,
+        ssid: parsed.ssid,
+        fwVersion: parsed.fwVersion,
+      },
+    });
+
+    return;
+  };
+
+  handleDeviceConnectionLog = async (
+    zoneId: string,
+    deviceId: string,
+    value: string,
+  ) => {
+    try {
+      const parsed = JSON.parse(value) as DeviceConnectionLogMessage;
+
+      if (parsed.secret !== env.DEVICE_SECRET_KEY) {
+        logger.warn("Invalid device connection log secret", {
+          zoneId,
+          deviceId,
+        });
+        return;
+      }
+
+      if (!parsed.deviceModel || typeof parsed.deviceModel !== "string") {
+        logger.warn("Invalid device connection log payload", {
+          zoneId,
+          deviceId,
+        });
+        return;
+      }
+
+      await DeviceConnectionLog.create({
+        deviceId: parsed.deviceId || deviceId,
+        deviceModel: parsed.deviceModel,
+        firmware: parsed.firmware,
+        ip: parsed.ip,
+        receivedAt: new Date(),
+      });
+    } catch (error) {
+      logger.error("Err handleDeviceConnectionLog", error);
+    }
+  };
+
+  publishPairingBridgeCommand = async (
+    deviceId: string,
+    command: PairingBridgeCommand,
+  ) => {
+    await handleWriteCommandJson(
+      deviceId,
+      { event: command },
+      {
+        commandId: `${deviceId}:${command}:${Date.now()}`,
+        topicSuffix: "set",
+      },
+    );
+  };
+
+  processSensorValue = async (
+    deviceId: string,
+    data: SensorDataConditionProcesss[],
+  ) => {
+    if (data.length > 0) {
+      for (const item of data) {
+        const findScene = await AutomationScene.findOne({
+          status: SceneStatus.ACTIVE,
+          conditions: {
+            $elemMatch: {
+              device: deviceId,
+              key: item.key,
+            },
+          },
+        })
+          .populate<{ actions: IAction[] }>("actions")
+          .populate<{ notifications: INotificationOption }>({
+            path: "notifications",
+            model: "NotificationOption",
+            // nếu muốn populate sâu các channels bên trong NotificationOption:
+            populate: [
+              { path: "channels.telegram", model: "TelegramAccount" },
+              // email thường là string hoặc EmailContact -> tùy schema
+            ],
+          })
+          .lean();
+        const expected = findScene?.conditions.find(
+          (cond) => cond.key == item.key,
+        );
+        if (expected?.operator) {
+          const check = await this.conditionService.evaluateCondition(
+            item.value,
+            expected?.operator,
+            expected?.value,
+            DeviceFieldType.FLOAT,
+          );
+          if (check) {
+            await this.handleAction(findScene?.actions);
+            if (findScene?.notifications) {
+              const telegramIds =
+                findScene?.notifications.channels.telegram.map((item) =>
+                  String(item._id),
+                );
+              const findTelegramAccount = await TelegramAccount.find({
+                _id: { $in: telegramIds },
+              });
+              const telegramAccountIds = findTelegramAccount.map(
+                (item) => item.telegramId,
+              );
+              let message = findScene?.notifications?.message
+                ? findScene?.notifications?.message
+                : "Cảnh báo";
+              message += `\n${findScene.name}`;
+              message += `\n${t("sensors." + item.key.toLowerCase(), undefined, "vi")} : ${item.value}`;
+
+              await telegramService.sendManyUserSequential(
+                telegramAccountIds,
+                message,
+              );
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    return false;
+  };
+  processByActionId = async (
+    actionId: string,
+    commandTopicSuffix: "set" | "action" = "set",
+  ) => {
+    const action = await Action.findOne({ _id: actionId }).lean<IAction>();
+    if (!action) throw new Error("Action not found");
+    await this.handleAction([action], commandTopicSuffix);
+  };
+
+  handleAction = async (
+    actions: IAction[] | undefined | null,
+    commandTopicSuffix: "set" | "action" = "set",
+  ) => {
+    if (actions && actions.length > 0) {
+      for (const action of actions) {
+        for (const step of action.steps) {
+          if (step.deviceType == DeviceType.ACTUATOR) {
+            await handleWriteCommandSet(
+              String(step.deviceId),
+              step.key,
+              Number(step.value),
+              { commandId: "xxxId", topicSuffix: commandTopicSuffix },
+            );
+          }
+          if (step.deviceType == DeviceType.SENSOR) {
+            await handleWriteCommandGet(String(step.deviceId));
+          }
+        }
+      }
+    }
+    return;
+  };
+}
+const typeCast = (value: string, type: string) => {
+  let newValue;
+  switch (type) {
+    case DeviceFieldType.BOOLEAN:
+      newValue = Boolean(Number(value));
+      break;
+    case DeviceFieldType.FLOAT:
+    case DeviceFieldType.INTEGER:
+      newValue = Number(value);
+      break;
+    case DeviceFieldType.STRING:
+    default:
+      newValue = value;
+
+      break;
+  }
+  return newValue;
+};
