@@ -1,4 +1,9 @@
-# Hotel PMS Requirements Summary
+# Legacy Hotel PMS Requirements Summary
+
+> This document is retained for historical reference only. Use
+> `docs/project-overview.md`, `docs/features/`, and `docs/api/` as the current
+> source of truth. Product, service, IoT, and advanced payment requirements in
+> this legacy document are not currently in scope.
 
 ## 1. Product Focus
 

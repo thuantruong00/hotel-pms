@@ -8,17 +8,16 @@ import {
 } from "typeorm";
 import { Room } from "./room.entity";
 import { RoomRatePlan } from "./room-rate-plan.entity";
-import { RoomRateRule } from "./room-rate-rule.entity";
 
 @Entity("room_types")
 export class RoomType {
   @PrimaryGeneratedColumn("uuid", { name: "room_type_id" })
   roomTypeId!: string;
 
-  @Column({ length: 30, unique: true })
+  @Column({ type: "varchar", length: 30, unique: true })
   code!: string;
 
-  @Column({ length: 100 })
+  @Column({ type: "varchar", length: 100 })
   name!: string;
 
   @Column({ type: "int", default: 2 })
@@ -27,7 +26,7 @@ export class RoomType {
   @Column({ type: "text", nullable: true })
   description!: string | null;
 
-  @Column({ name: "is_active", default: true })
+  @Column({ name: "is_active", type: "boolean", default: true })
   isActive!: boolean;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
@@ -42,6 +41,4 @@ export class RoomType {
   @OneToMany(() => RoomRatePlan, (ratePlan) => ratePlan.roomType)
   ratePlans!: RoomRatePlan[];
 
-  @OneToMany(() => RoomRateRule, (rateRule) => rateRule.roomType)
-  rateRules!: RoomRateRule[];
 }

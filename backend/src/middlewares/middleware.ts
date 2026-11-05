@@ -9,6 +9,23 @@ type DTOConfig = {
   params?: new () => any;
 };
 
+function normalizeRole(value: unknown): UserRole | null {
+  switch (value) {
+    case UserRole.STAFF:
+    case "user":
+      return UserRole.STAFF;
+    case UserRole.MANAGER:
+      return UserRole.MANAGER;
+    case UserRole.ADMIN:
+    case "root":
+      return UserRole.ADMIN;
+    case UserRole.GUEST:
+      return UserRole.GUEST;
+    default:
+      return null;
+  }
+}
+
 export class Middleware {
   protected userRole: string;
 
@@ -35,17 +52,31 @@ export class Middleware {
           role: currentRole,
           pageCode,
           allowedRole: opts?.allowedRole ?? [
-            UserRole.USER,
+            UserRole.STAFF,
+            UserRole.MANAGER,
             UserRole.ADMIN,
-            UserRole.ROOT,
           ],
         });
 
         if (!access.allowed) {
           if (!auth.success) {
-            return res.status(401).json({ message: "Unauthenticated." });
+            const statusCode = auth.reason === "forbidden" ? 403 : 401;
+            return res.status(statusCode).json({
+              error: {
+                code: statusCode === 401 ? "UNAUTHENTICATED" : "FORBIDDEN",
+                message:
+                  statusCode === 401
+                    ? "Authentication is required."
+                    : "The user account is not allowed to access this resource.",
+              },
+            });
           }
-          return res.status(403).json({ message: "Access denied." });
+          return res.status(403).json({
+            error: {
+              code: "FORBIDDEN",
+              message: "You do not have permission to perform this operation.",
+            },
+          });
         }
 
         if (auth.success) {
@@ -61,34 +92,39 @@ export class Middleware {
 }
 
 export function checkAccess(options: {
-  role: UserRole;
+  role: UserRole | string;
   pageCode: string;
-  allowedRole?: UserRole[];
+  allowedRole?: Array<UserRole | string>;
 }): { allowed: boolean; reason?: "unauthenticated" | "unauthorized" } {
-  const { role, pageCode, allowedRole } = options;
+  const role = normalizeRole(options.role);
+  const { pageCode, allowedRole } = options;
   const denyReason =
-    role === UserRole.GUEST ? "unauthenticated" : "unauthorized";
+    role === UserRole.GUEST || role === null
+      ? "unauthenticated"
+      : "unauthorized";
+
+  if (!role || role === UserRole.GUEST) {
+    return { allowed: false, reason: denyReason };
+  }
 
   const routerBaseAllowed =
     !allowedRole || allowedRole.length === 0
       ? true
-      : allowedRole.includes(role);
+      : allowedRole.some((item) => normalizeRole(item) === role);
 
   const allowList = RoleAccess.allow?.[role] ?? [];
   const blockList = RoleAccess.block?.[role] ?? [];
 
-  const hasCustomAllow = allowList.includes(pageCode);
-  const hasCustomBlock = blockList.includes(pageCode);
+  const hasCustomAllow =
+    allowList.includes("*") || allowList.includes(pageCode);
+  const hasCustomBlock =
+    blockList.includes("*") || blockList.includes(pageCode);
 
   if (hasCustomBlock) {
     return {
       allowed: false,
       reason: denyReason,
     };
-  }
-
-  if (hasCustomAllow) {
-    return { allowed: true };
   }
 
   if (!routerBaseAllowed) {
@@ -98,12 +134,21 @@ export function checkAccess(options: {
     };
   }
 
+  const hasAllowConfiguration = Object.prototype.hasOwnProperty.call(
+    RoleAccess.allow ?? {},
+    role,
+  );
+
+  if (hasAllowConfiguration && !hasCustomAllow) {
+    return { allowed: false, reason: denyReason };
+  }
+
   return { allowed: true };
 }
 
 type AuthResult =
   | { success: true; method: string; role: UserRole; user: any }
-  | { success: false; reason: "unauthenticated" };
+  | { success: false; reason: "unauthenticated" | "forbidden" };
 
 type AuthMethod = "session" | "basic" | "apiKey" | "bearer";
 
@@ -114,12 +159,21 @@ export async function resolveApiAuth(
   for (const method of methods) {
     switch (method) {
       case "session": {
-        const sessionUser = req.session.user;
+        const sessionUser = req.session?.user;
         if (sessionUser?.user_id) {
+          const role = normalizeRole(sessionUser.role);
+          if (!role || role === UserRole.GUEST) {
+            return { success: false, reason: "forbidden" };
+          }
+
+          if (sessionUser.status && sessionUser.status !== "active") {
+            return { success: false, reason: "forbidden" };
+          }
+
           return {
             success: true,
             method: "session",
-            role: sessionUser.role as UserRole,
+            role,
             user: sessionUser,
           };
         }
@@ -140,8 +194,8 @@ export async function resolveApiAuth(
             return {
               success: true,
               method: "basic",
-              role: UserRole.ROOT,
-              user: { username, role: UserRole.ROOT },
+              role: UserRole.ADMIN,
+              user: { username, role: UserRole.ADMIN, status: "active" },
             };
           }
         }

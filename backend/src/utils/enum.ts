@@ -9,14 +9,25 @@ export enum RoomStatus {
   INACTIVE = "inactive",
 }
 
-export enum RoomRateRuleType {
-  FIRST_HOUR = "first_hour",
-  ADDITIONAL_HOUR = "additional_hour",
-  HOURLY = "hourly",
-  OVERNIGHT = "overnight",
-  DAILY = "daily",
-  EARLY_CHECK_IN_FEE = "early_check_in_fee",
-  LATE_CHECK_OUT_FEE = "late_check_out_fee",
-  EXTRA_GUEST_FEE = "extra_guest_fee",
-  CANCEL_FEE = "cancel_fee",
+export enum RoomStayStatus {
+  RESERVED = "reserved",
+  CHECKED_IN = "checked_in",
+  CHECKED_OUT = "checked_out",
+  CANCELLED = "cancelled",
+  NO_SHOW = "no_show",
+}
+
+export enum UserRole {
+  STAFF = "staff",
+  MANAGER = "manager",
+  ADMIN = "admin",
+  GUEST = "guest",
+  USER = "staff",
+  ROOT = "admin",
+}
+
+export enum UserStatus {
+  ACTIVE = "active",
+  INACTIVE = "inactive",
+  LOCKED = "locked",
 }

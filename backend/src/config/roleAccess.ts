@@ -12,15 +12,15 @@ export interface IRoleAccess {
 
 const defaultRoleAccess: IRoleAccess = {
   allow: {
-    root: [],
     admin: [],
-    user: [],
+    manager: [],
+    staff: [],
     guest: [],
   },
   block: {
-    root: [],
     admin: [],
-    user: [],
+    manager: [],
+    staff: [],
     guest: [],
   },
 };

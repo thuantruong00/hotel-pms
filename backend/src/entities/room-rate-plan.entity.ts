@@ -9,7 +9,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { RoomRateRule } from "./room-rate-rule.entity";
 import { RoomType } from "./room-type.entity";
 
 @Entity("room_rate_plans")
@@ -18,7 +17,7 @@ export class RoomRatePlan {
   @PrimaryGeneratedColumn("uuid", { name: "rate_plan_id" })
   ratePlanId!: string;
 
-  @Column({ name: "room_type_id" })
+  @Column({ name: "room_type_id", type: "uuid" })
   roomTypeId!: string;
 
   @ManyToOne(() => RoomType, (roomType) => roomType.ratePlans, {
@@ -27,10 +26,10 @@ export class RoomRatePlan {
   @JoinColumn({ name: "room_type_id" })
   roomType!: RoomType;
 
-  @Column({ length: 30 })
+  @Column({ type: "varchar", length: 30 })
   code!: string;
 
-  @Column({ length: 100 })
+  @Column({ type: "varchar", length: 100 })
   name!: string;
 
   @Column({ name: "default_check_in_time", type: "time", nullable: true })
@@ -57,14 +56,11 @@ export class RoomRatePlan {
   @Column({ name: "valid_to", type: "date", nullable: true })
   validTo!: string | null;
 
-  @Column({ name: "is_default", default: false })
+  @Column({ name: "is_default", type: "boolean", default: false })
   isDefault!: boolean;
 
-  @Column({ name: "is_active", default: true })
+  @Column({ name: "is_active", type: "boolean", default: true })
   isActive!: boolean;
-
-  @OneToMany(() => RoomRateRule, (rule) => rule.ratePlan)
-  rules!: RoomRateRule[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

@@ -16,23 +16,23 @@ export class User {
   @PrimaryGeneratedColumn("uuid", { name: "user_id" })
   userId!: string;
 
-  @Column({ length: 80 })
+  @Column({ type: "varchar", length: 80 })
   @IsString()
   @Length(3, 80)
   @Matches(/^[a-zA-Z0-9._-]+$/)
   username!: string;
 
-  @Column({ name: "display_name", length: 150, nullable: true })
+  @Column({ name: "display_name", type: "varchar", length: 150, nullable: true })
   @IsOptional()
   @IsString()
   @Length(1, 150)
   displayName!: string | null;
 
-  @Column({ length: 30, default: "staff" })
+  @Column({ type: "varchar", length: 30, default: "staff" })
   @IsIn(["admin", "manager", "staff"])
   role!: string;
 
-  @Column({ length: 20, default: "active" })
+  @Column({ type: "varchar", length: 20, default: "active" })
   @IsIn(["active", "inactive", "locked"])
   status!: string;
 

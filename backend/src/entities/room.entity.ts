@@ -17,7 +17,7 @@ export class Room {
   @PrimaryGeneratedColumn("uuid", { name: "room_id" })
   roomId!: string;
 
-  @Column({ name: "room_type_id" })
+  @Column({ name: "room_type_id", type: "uuid" })
   roomTypeId!: string;
 
   @ManyToOne(() => RoomType, (roomType) => roomType.rooms, {
@@ -26,7 +26,7 @@ export class Room {
   @JoinColumn({ name: "room_type_id" })
   roomType!: RoomType;
 
-  @Column({ name: "room_number", length: 20 })
+  @Column({ name: "room_number", type: "varchar", length: 20 })
   roomNumber!: string;
 
   @Column({ type: "int", nullable: true })
@@ -38,7 +38,7 @@ export class Room {
   @Column({ type: "text", nullable: true })
   notes!: string | null;
 
-  @Column({ name: "is_active", default: true })
+  @Column({ name: "is_active", type: "boolean", default: true })
   isActive!: boolean;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
@@ -46,4 +46,5 @@ export class Room {
 
   @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
   updatedAt!: Date;
+
 }

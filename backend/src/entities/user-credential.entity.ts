@@ -17,14 +17,14 @@ export class UserCredential {
   @PrimaryGeneratedColumn("uuid", { name: "credential_id" })
   credentialId!: string;
 
-  @Column({ name: "user_id" })
+  @Column({ name: "user_id", type: "uuid" })
   userId!: string;
 
   @OneToOne(() => User, (user) => user.credentials, { onDelete: "CASCADE" })
   @JoinColumn({ name: "user_id" })
   user!: User;
 
-  @Column({ name: "password_hash", length: 255 })
+  @Column({ name: "password_hash", type: "varchar", length: 255 })
   @IsString()
   @Length(60, 255)
   passwordHash!: string;

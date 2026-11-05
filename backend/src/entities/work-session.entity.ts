@@ -16,7 +16,7 @@ export class WorkSession {
   @PrimaryGeneratedColumn("uuid", { name: "session_id" })
   sessionId!: string;
 
-  @Column({ name: "user_id" })
+  @Column({ name: "user_id", type: "uuid" })
   userId!: string;
 
   @ManyToOne(() => User, { onDelete: "RESTRICT" })
@@ -29,7 +29,7 @@ export class WorkSession {
   @Column({ name: "ended_at", type: "timestamptz", nullable: true })
   endedAt!: Date | null;
 
-  @Column({ length: 20, default: "open" })
+  @Column({ type: "varchar", length: 20, default: "open" })
   status!: string;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
