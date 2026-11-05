@@ -15,24 +15,27 @@
       <div class="login-card">
         <div class="mobile-brand">HOTEL PMS</div>
         <p class="eyebrow">WELCOME BACK</p>
-        <h2>Sign in to your workspace</h2>
-        <p class="muted">Use any values for now. Authentication will be added later.</p>
+        <h2>Đăng nhập</h2>
+        <p class="muted">Dùng tài khoản nhân viên được cấp.</p>
+
+        <n-alert v-if="error" type="error" :show-icon="false" style="margin-bottom: 16px">{{ error }}</n-alert>
 
         <n-form class="login-form" @submit.prevent="handleLogin">
-          <n-form-item label="Email">
-            <n-input v-model:value="form.email" size="large" placeholder="you@hotel.com" />
+          <n-form-item label="Tên đăng nhập">
+            <n-input v-model:value="form.username" size="large" placeholder="admin" :input-props="{ autocomplete: 'username' }" />
           </n-form-item>
-          <n-form-item label="Password">
+          <n-form-item label="Mật khẩu">
             <n-input
               v-model:value="form.password"
               size="large"
               type="password"
               show-password-on="click"
-              placeholder="Enter your password"
+              placeholder="Nhập mật khẩu"
+              :input-props="{ autocomplete: 'current-password' }"
             />
           </n-form-item>
-          <n-button type="primary" size="large" block attr-type="submit">
-            Continue to dashboard
+          <n-button type="primary" size="large" block attr-type="submit" :loading="loading">
+            Đăng nhập
           </n-button>
         </n-form>
       </div>
@@ -41,17 +44,29 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
-import { useRouter } from 'vue-router'
-import { NButton, NForm, NFormItem, NInput } from 'naive-ui'
+import { reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { NAlert, NButton, NForm, NFormItem, NInput } from 'naive-ui'
+import { useAuthStore } from '../stores/auth'
+import { errorText } from '../api/client'
 
 const router = useRouter()
-const form = reactive({
-  email: '',
-  password: '',
-})
+const route = useRoute()
+const auth = useAuthStore()
+const form = reactive({ username: '', password: '' })
+const loading = ref(false)
+const error = ref('')
 
-const handleLogin = () => {
-  router.push('/dashboard')
+const handleLogin = async () => {
+  error.value = ''
+  loading.value = true
+  try {
+    await auth.login(form.username.trim(), form.password)
+    router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard')
+  } catch (e) {
+    error.value = errorText(e)
+  } finally {
+    loading.value = false
+  }
 }
 </script>

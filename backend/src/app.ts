@@ -1,89 +1,36 @@
 import "reflect-metadata";
-import express from "express";
 import "dotenv/config";
-import path from "path";
+import express from "express";
 import cookieParser from "cookie-parser";
+import cors from "cors";
 import morgan from "morgan";
 
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-import { siteMeta } from "./config/siteMeta";
+import { routes } from "./routes";
+import { errorHandler, notFoundHandler } from "./middlewares/errors.middleware";
+import { env } from "./utils/env";
 
-// import { execSync } from "child_process";
-// import packageJson from "../package.json";
-
-// const gitHash = execSync("git rev-parse --short HEAD")
-//   .toString()
-//   .trim();
-
-
-
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// create a express server
 const app: express.Application = express();
 
-// setting logger
+app.disable("x-powered-by");
 app.use(morgan("dev"));
 
-// app.locals.buildVersion = packageJson.version;
-// app.locals.gitHash = gitHash;
+if (env.CORS_ORIGIN) {
+  app.use(
+    cors({
+      origin: env.CORS_ORIGIN.split(",").map((o) => o.trim()),
+      methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    }),
+  );
+}
 
-// configure header information
-// allow request from any source
-// app.use(cors());
-// app.disable('x-powered-by');
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
-// app.use(localeMiddleware);
-/* ===== Router ===== */
-import { routes } from "./routes";
-import { errorHandler } from "./middlewares/errors.middleware";
-// import { localeMiddleware } from "./middlewares/middleware.locale";
-
-
-
-// setup passport
-
-/* ===== View ===== */
-// setting the view engine
-// app.set("view engine", "ejs");
-// setting the root path for views directory
-// app.set("views", path.join(__dirname, "views"));
-// setting the express ejs layout
-
-
-// setting static content
-// app.use(express.static(path.join(__dirname, "statics")));
-
-// expose only safe env values to client-rendered pages
-app.use((req, res, next) => {
-  res.locals.publicEnv = {
-    SOCKET_HOST: process.env.SOCKET_HOST || "",
-    SOCKET_PORT: process.env.SOCKET_PORT || "",
-    MQTT_PREFIX_TOPIC: process.env.MQTT_PREFIX_TOPIC || "",
-    NODE_ENV: process.env.NODE_ENV || "production",
-  };
-  res.locals.meta = { ...siteMeta };
-  next();
-});
-
-
 
 routes(app);
-app.get("/", function (req, res) {
-  res.redirect("/dashboard/auth/sign-in");
-});
-app.get("/dashboard/", function (req, res) {
-  res.redirect("/dashboard/auth/sign-in");
-});
 
-// error handling
-
+app.use(notFoundHandler);
 app.use(errorHandler);
 
 export default app;

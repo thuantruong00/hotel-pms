@@ -1,2 +1,3 @@
-export * from "./middleware";
+export * from "./auth.middleware";
+export * from "./errors.middleware";
 export * from "./zodValidator";

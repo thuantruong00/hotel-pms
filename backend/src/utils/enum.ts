@@ -17,17 +17,44 @@ export enum RoomStayStatus {
   NO_SHOW = "no_show",
 }
 
+/** Stay statuses that block room availability. */
+export const ACTIVE_STAY_STATUSES: RoomStayStatus[] = [
+  RoomStayStatus.RESERVED,
+  RoomStayStatus.CHECKED_IN,
+];
+
 export enum UserRole {
   STAFF = "staff",
   MANAGER = "manager",
   ADMIN = "admin",
-  GUEST = "guest",
-  USER = "staff",
-  ROOT = "admin",
 }
 
 export enum UserStatus {
   ACTIVE = "active",
   INACTIVE = "inactive",
   LOCKED = "locked",
+}
+
+export enum RatePricingType {
+  /** basePrice covers baseDurationMinutes, extra time billed per hour. */
+  HOURLY = "hourly",
+  /** basePrice covers one overnight block, extra time billed per hour. */
+  OVERNIGHT = "overnight",
+  /** basePrice per started 24-hour day. */
+  DAILY = "daily",
+}
+
+export enum PaymentMethod {
+  CASH = "cash",
+  BANK_TRANSFER = "bank_transfer",
+}
+
+export enum WorkSessionStatus {
+  OPEN = "open",
+  CLOSED = "closed",
+}
+
+export enum IdentityStatus {
+  ACTIVE = "active",
+  REPLACED = "replaced",
 }

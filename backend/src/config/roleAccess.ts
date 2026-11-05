@@ -1,81 +1,54 @@
 import fs from "fs";
 import path from "path";
+import { DefaultRolePermissions } from "./permissions";
 
+/**
+ * Role access configuration (docs/api/authorization.md).
+ * `block` rules always take precedence over `allow` rules.
+ */
 export interface IRoleAccess {
-  allow?: {
-    [role: string]: string[];
-  };
-  block: {
-    [role: string]: string[];
-  };
+  allow: Record<string, string[]>;
+  block: Record<string, string[]>;
 }
 
-const defaultRoleAccess: IRoleAccess = {
-  allow: {
-    admin: [],
-    manager: [],
-    staff: [],
-    guest: [],
-  },
-  block: {
-    admin: [],
-    manager: [],
-    staff: [],
-    guest: [],
-  },
-};
+const roleAccessDataPath = path.resolve(process.cwd(), "data", "roleAccess.json");
 
-const roleAccessDataPath = path.resolve(
-  process.cwd(),
-  "data",
-  "roleAccess.json",
-);
+const isRoleTable = (table: unknown): table is Record<string, string[]> =>
+  !!table &&
+  typeof table === "object" &&
+  !Array.isArray(table) &&
+  Object.values(table).every(
+    (codes) => Array.isArray(codes) && codes.every((c) => typeof c === "string"),
+  );
 
-function isValidRoleAccess(data: unknown): data is IRoleAccess {
-  if (!data || typeof data !== "object") return false;
-
-  const allow = (data as IRoleAccess).allow;
-  const block = (data as IRoleAccess).block;
-  if (!block || typeof block !== "object" || Array.isArray(block)) return false;
-
-  const isValidRoleTable = (table: Record<string, string[]> | undefined) => {
-    if (!table) return true;
-    if (typeof table !== "object" || Array.isArray(table)) return false;
-
-    return Object.values(table).every((pages) => {
-      return (
-        Array.isArray(pages) &&
-        pages.every((pageCode) => typeof pageCode === "string")
-      );
-    });
-  };
-
-  return isValidRoleTable(allow) && isValidRoleTable(block);
-}
-
-function readRoleAccessFromDataFile(): IRoleAccess | null {
+function readRoleAccessFromDataFile(): Partial<IRoleAccess> | null {
   try {
     if (!fs.existsSync(roleAccessDataPath)) return null;
-
     const raw = fs.readFileSync(roleAccessDataPath, "utf-8").trim();
     if (!raw) return null;
 
-    const parsed = JSON.parse(raw) as unknown;
-    return isValidRoleAccess(parsed) ? parsed : null;
+    const parsed = JSON.parse(raw) as Partial<IRoleAccess>;
+    if (parsed.allow !== undefined && !isRoleTable(parsed.allow)) return null;
+    if (parsed.block !== undefined && !isRoleTable(parsed.block)) return null;
+    return parsed;
   } catch {
+    console.error("Invalid data/roleAccess.json, falling back to defaults");
     return null;
   }
 }
 
-const roleAccessFromFile = readRoleAccessFromDataFile();
+const fromFile = readRoleAccessFromDataFile();
 
 export const RoleAccess: IRoleAccess = {
-  allow: {
-    ...defaultRoleAccess.allow,
-    ...(roleAccessFromFile?.allow ?? {}),
-  },
-  block: {
-    ...defaultRoleAccess.block,
-    ...(roleAccessFromFile?.block ?? {}),
-  },
+  allow: { ...DefaultRolePermissions, ...(fromFile?.allow ?? {}) },
+  block: { ...(fromFile?.block ?? {}) },
 };
+
+/** Decides whether a role holds a permission code. */
+export function hasPermission(role: string, permission: string): boolean {
+  const blocked = RoleAccess.block[role] ?? [];
+  if (blocked.includes("*") || blocked.includes(permission)) return false;
+
+  const allowed = RoleAccess.allow[role] ?? [];
+  return allowed.includes("*") || allowed.includes(permission);
+}

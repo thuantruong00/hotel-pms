@@ -35,3 +35,17 @@ total_amount = room_amount
              + surcharge_amount
              + penalty_amount
 ```
+
+## Room Rate Pricing
+
+Each `RoomRatePlan` belongs to one room type and defines a `pricing_type`:
+
+- `hourly`: `base_price` covers the first `base_duration_minutes` (default 60).
+  Extra time beyond `check_out_grace_minutes` is rounded up to
+  `rounding_minutes` and billed at `additional_hour_price` per hour.
+- `overnight`: same formula, with a longer base block (default 720 minutes).
+- `daily`: `base_price` per started 24-hour day after
+  `check_out_grace_minutes`, minimum one day.
+
+The billing period uses actual check-in/check-out times when available,
+otherwise the planned times.
