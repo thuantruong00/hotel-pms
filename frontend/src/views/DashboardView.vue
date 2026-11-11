@@ -1,41 +1,45 @@
 <template>
-  <PmsLayout>
+  <PmsLayout title="Tổng quan" kicker="PROPERTY OVERVIEW">
     <div class="dashboard-page">
       <div class="page-heading">
         <div>
-          <p class="eyebrow">TUESDAY, OCTOBER 23, 2026</p>
-          <h2>Property overview</h2>
+          <p class="eyebrow">{{ today }}</p>
+          <h2>Tình hình khách sạn</h2>
         </div>
-        <n-button type="primary">+ New reservation</n-button>
+        <n-space>
+          <n-button @click="load" :loading="loading">Tải lại</n-button>
+          <n-button type="primary" @click="router.push('/stays')">+ Đặt phòng</n-button>
+        </n-space>
       </div>
 
-      <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen">
-        <n-gi v-for="stat in stats" :key="stat.label">
+      <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
+        <n-gi v-for="stat in stats" :key="stat.label" span="4 m:2 l:1">
           <n-card :bordered="false" class="stat-card">
             <p class="stat-label">{{ stat.label }}</p>
             <div class="stat-value">{{ stat.value }}</div>
-            <span class="stat-change" :class="stat.tone">{{ stat.change }}</span>
+            <span class="stat-change neutral">{{ stat.hint }}</span>
           </n-card>
         </n-gi>
       </n-grid>
 
       <div class="dashboard-grid">
-        <n-card :bordered="false" title="Today's reservations" class="reservation-card">
+        <n-card :bordered="false" title="Khách đang ở / sắp đến" class="reservation-card">
           <template #header-extra>
-            <n-button text type="primary">View all</n-button>
+            <n-button text type="primary" @click="router.push('/stays')">Xem tất cả</n-button>
           </template>
-          <n-data-table :columns="columns" :data="reservations" :bordered="false" />
+          <n-data-table :columns="columns" :data="activeStays" :bordered="false" size="small" />
         </n-card>
 
-        <n-card :bordered="false" title="Room status" class="room-card">
-          <div v-for="room in rooms" :key="room.label" class="room-row">
+        <n-card :bordered="false" title="Trạng thái phòng" class="room-card">
+          <div v-for="row in roomRows" :key="row.status" class="room-row">
             <div class="room-label">
-              <span class="room-dot" :class="room.tone"></span>
-              <span>{{ room.label }}</span>
+              <span class="room-dot" :class="row.status"></span>
+              <span>{{ roomStatusLabel[row.status] }}</span>
             </div>
-            <strong>{{ room.value }}</strong>
+            <strong>{{ row.count }} phòng</strong>
           </div>
-          <n-button secondary block class="room-button">Open room board</n-button>
+          <n-empty v-if="!roomRows.length" description="Chưa có phòng" />
+          <n-button secondary block class="room-button" @click="router.push('/rooms')">Quản lý phòng</n-button>
         </n-card>
       </div>
     </div>
@@ -43,53 +47,82 @@
 </template>
 
 <script setup lang="ts">
-import { h } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import type { DataTableColumns } from 'naive-ui'
-import { NButton, NCard, NDataTable, NGi, NGrid, NTag } from 'naive-ui'
+import { NButton, NCard, NDataTable, NEmpty, NGi, NGrid, NSpace, NTag, useMessage } from 'naive-ui'
 import PmsLayout from '../layouts/PmsLayout.vue'
+import { errorText, get } from '../api/client'
+import type { Paged, Room, RoomStay } from '../api/types'
+import { fmtDateTime, roomStatusLabel, stayStatusLabel } from '../utils/format'
 
-type Reservation = {
-  guest: string
-  room: string
-  stay: string
-  status: 'Checked in' | 'Arriving' | 'Checked out'
-}
+const router = useRouter()
+const message = useMessage()
+const loading = ref(false)
+const rooms = ref<Room[]>([])
+const reserved = ref<Paged<RoomStay> | null>(null)
+const checkedIn = ref<Paged<RoomStay> | null>(null)
 
-const stats = [
-  { label: 'Occupancy', value: '78%', change: '+6.4% vs last week', tone: 'positive' },
-  { label: 'Arrivals today', value: '24', change: '8 rooms ready', tone: 'positive' },
-  { label: 'Departures today', value: '18', change: '3 pending checkout', tone: 'neutral' },
-  { label: 'Revenue today', value: '$12,840', change: '+12.8% vs yesterday', tone: 'positive' },
-]
+const today = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
+  .format(new Date()).toUpperCase()
 
-const reservations: Reservation[] = [
-  { guest: 'Sofia Bennett', room: '402 · Deluxe King', stay: 'Oct 23 – Oct 26', status: 'Checked in' },
-  { guest: 'Daniel Kim', room: '215 · Garden Twin', stay: 'Oct 23 – Oct 25', status: 'Arriving' },
-  { guest: 'Maya Patel', room: '518 · Premium Suite', stay: 'Oct 22 – Oct 28', status: 'Checked in' },
-  { guest: 'Oliver Chen', room: '108 · Standard Queen', stay: 'Oct 20 – Oct 23', status: 'Checked out' },
-]
+const roomRows = computed(() => {
+  const counts = new Map<string, number>()
+  for (const r of rooms.value) counts.set(r.status, (counts.get(r.status) ?? 0) + 1)
+  return [...counts.entries()].map(([status, count]) => ({ status, count }))
+})
 
-const statusColors: Record<Reservation['status'], string> = {
-  'Checked in': '#2f8f6b',
-  Arriving: '#c47b22',
-  'Checked out': '#7c8796',
-}
+const stats = computed(() => {
+  const total = rooms.value.filter((r) => r.isActive).length
+  const occupied = checkedIn.value?.total ?? 0
+  return [
+    { label: 'Tổng số phòng', value: String(total), hint: 'đang hoạt động' },
+    { label: 'Đang có khách', value: String(occupied), hint: total ? `${Math.round((occupied / total) * 100)}% công suất` : '—' },
+    { label: 'Đặt trước', value: String(reserved.value?.total ?? 0), hint: 'chưa nhận phòng' },
+    { label: 'Phòng trống', value: String(rooms.value.filter((r) => r.status === 'available').length), hint: 'theo trạng thái phòng' },
+  ]
+})
 
-const columns: DataTableColumns<Reservation> = [
-  { title: 'Guest', key: 'guest' },
-  { title: 'Room', key: 'room' },
-  { title: 'Stay', key: 'stay' },
+const activeStays = computed(() => [...(checkedIn.value?.items ?? []), ...(reserved.value?.items ?? [])])
+
+const columns: DataTableColumns<RoomStay> = [
+  { title: 'Phòng', key: 'room', render: (r) => r.room?.roomNumber ?? '—' },
   {
-    title: 'Status',
+    title: 'Khách chính',
+    key: 'guest',
+    render: (r) => r.guests?.find((g) => g.isPrimary)?.customer?.fullName || '(chưa có tên)',
+  },
+  { title: 'Dự kiến', key: 'plan', render: (r) => `${fmtDateTime(r.plannedCheckInAt)} → ${fmtDateTime(r.plannedCheckOutAt)}` },
+  {
+    title: 'Trạng thái',
     key: 'status',
-    render: (row) => h(NTag, { bordered: false, color: { textColor: statusColors[row.status], color: `${statusColors[row.status]}18` } }, { default: () => row.status }),
+    render: (r) => h(NTag, { bordered: false, type: stayStatusLabel[r.status]?.type }, { default: () => stayStatusLabel[r.status]?.label }),
   },
 ]
 
-const rooms = [
-  { label: 'Available', value: '18 rooms', tone: 'available' },
-  { label: 'Occupied', value: '72 rooms', tone: 'occupied' },
-  { label: 'Cleaning', value: '9 rooms', tone: 'cleaning' },
-  { label: 'Maintenance', value: '3 rooms', tone: 'maintenance' },
-]
+async function load() {
+  loading.value = true
+  try {
+    const [r, res, ci] = await Promise.all([
+      get<Room[]>('/rooms'),
+      get<Paged<RoomStay>>('/room-stays', { status: 'reserved', limit: 10 }),
+      get<Paged<RoomStay>>('/room-stays', { status: 'checked_in', limit: 10 }),
+    ])
+    rooms.value = r
+    reserved.value = res
+    checkedIn.value = ci
+  } catch (e) {
+    message.error(errorText(e))
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(load)
 </script>
+
+<style scoped>
+.room-dot.available { background: #2f8f6b; }
+.room-dot.reserved { background: #3b6fd1; }
+.room-dot.out_of_order, .room-dot.inactive { background: #9aa3ad; }
+</style>

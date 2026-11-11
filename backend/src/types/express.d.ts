@@ -1,26 +1,15 @@
 declare global {
   namespace Express {
     interface Request {
+      /** Authenticated user, loaded server-side by `requireAuthentication`. */
       user?: {
-        user_id: string;
-        username?: string;
+        userId: string;
+        username: string;
+        displayName: string | null;
         role: string;
-        status?: string;
-        [key: string]: unknown;
+        status: string;
       };
     }
-  }
-}
-
-declare module "express-session" {
-  interface SessionData {
-    user?: {
-      user_id: string;
-      username?: string;
-      role: string;
-      status?: string;
-      [key: string]: unknown;
-    };
   }
 }
 

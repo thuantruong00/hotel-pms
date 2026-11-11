@@ -23,6 +23,12 @@ export class RoomType {
   @Column({ type: "int", default: 2 })
   capacity!: number;
 
+  @Column({ name: "bed_count", type: "int", default: 1 })
+  bedCount!: number;
+
+  @Column({ name: "bed_type", type: "varchar", length: 50, nullable: true })
+  bedType!: string | null;
+
   @Column({ type: "text", nullable: true })
   description!: string | null;
 

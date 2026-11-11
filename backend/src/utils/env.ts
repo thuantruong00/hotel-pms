@@ -1,29 +1,21 @@
-import path from "path";
-
 export const env = {
+  PORT: process.env.PORT || 8002,
   DB_CONNECT_STRING: process.env.DB_CONNECT_STRING || "",
-  DB_NAME: process.env.DB_NAME || "aquadb",
-  MQTT_HOST: process.env.MQTT_HOST,
-  MQTT_PORT: process.env.MQTT_PORT || 1883,
-  MQTT_USERNAME: process.env.MQTT_USERNAME || "default_user",
-  MQTT_PWD: process.env.MQTT_PWD || "default_pwd",
-  SOCKET_PORT: process.env.SOCKET_PORT || 3000,
-  MQTT_PREFIX_TOPIC: process.env.MQTT_PREFIX_TOPIC,
-  ZONE_SECRET: process.env.ZONE_SECRET,
-  BASIC_AUTH_USERNAME: process.env.BASIC_AUTH_USERNAME,
-  BASIC_AUTH_PASSWORD: process.env.BASIC_AUTH_PASSWORD,
-  INIT: process.env.INIT || 0,
-  BOT_TOKEN: process.env.BOT_TOKEN || "",
-  BOT_ALLOW_USER: process.env.BOT_ALLOW_USER || 0,
   NODE_ENV: process.env.NODE_ENV || "production",
-  SECRET_KEY_INTERNAL: process.env.SECRET_KEY_INTERNAL || "pl12hs228as",
-  DEVICE_SECRET_KEY: process.env.DEVICE_SECRET_KEY || "123456",
-  OTA_FIRMWARE_PUBLIC_BASE_URL: process.env.OTA_FIRMWARE_PUBLIC_BASE_URL || "",
+  INIT: process.env.INIT || 0,
+
+  /** Secret used to sign access tokens. Required in production. */
+  JWT_SECRET: process.env.JWT_SECRET || "",
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "12h",
+
+  /** Comma-separated list of allowed origins; empty disables CORS headers. */
+  CORS_ORIGIN: process.env.CORS_ORIGIN || "",
+
+  /** Initial admin account created when INIT=1 and no admin exists. */
+  ADMIN_USERNAME: process.env.ADMIN_USERNAME || "",
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "",
+
+  // Legacy values still referenced by the socket service and utils/sign.ts.
+  SOCKET_PORT: process.env.SOCKET_PORT || 3000,
   KEY_SIGN: process.env.KEY_SIGN || "",
-  SECRET_KEY_SIGN: process.env.SECRET_KEY_SIGN || "",
-  REDIRECT_URL: process.env.REDIRECT_URL || "/dashboard/device-control",
-  FIRMWARES_DIR:
-    process.env.FIRMWARES_DIR || path.resolve(process.cwd(), "data/firmwares"),
-  CUSTOM_MQTT_ZONE:
-    process.env.CUSTOM_MQTT_ZONE || "Nzj9gp3RYJjNQ1NDdlYWM2Y2Y3ZWZjZ1",
 };

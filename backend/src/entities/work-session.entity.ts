@@ -12,6 +12,11 @@ import { User } from "./user.entity";
 
 @Entity("work_sessions")
 @Index(["userId", "status"])
+// A user may have only one open work session at a time.
+@Index("UQ_work_sessions_one_open_per_user", ["userId"], {
+  unique: true,
+  where: `"status" = 'open'`,
+})
 export class WorkSession {
   @PrimaryGeneratedColumn("uuid", { name: "session_id" })
   sessionId!: string;

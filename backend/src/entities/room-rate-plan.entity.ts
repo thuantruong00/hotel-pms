@@ -5,11 +5,11 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
 import { RoomType } from "./room-type.entity";
+import { RatePricingType } from "~/utils/enum";
 
 @Entity("room_rate_plans")
 @Index(["roomTypeId", "code"], { unique: true })
@@ -31,6 +31,26 @@ export class RoomRatePlan {
 
   @Column({ type: "varchar", length: 100 })
   name!: string;
+
+  @Column({
+    name: "pricing_type",
+    type: "enum",
+    enum: RatePricingType,
+    default: RatePricingType.HOURLY,
+  })
+  pricingType!: RatePricingType;
+
+  /** Price of the first block (first hours, one overnight, or one day). */
+  @Column({ name: "base_price", type: "numeric", precision: 12, scale: 2, default: 0 })
+  basePrice!: string;
+
+  /** Minutes covered by basePrice (hourly / overnight plans). */
+  @Column({ name: "base_duration_minutes", type: "int", default: 60 })
+  baseDurationMinutes!: number;
+
+  /** Price per additional hour after the base block (hourly / overnight plans). */
+  @Column({ name: "additional_hour_price", type: "numeric", precision: 12, scale: 2, default: 0 })
+  additionalHourPrice!: string;
 
   @Column({ name: "default_check_in_time", type: "time", nullable: true })
   defaultCheckInTime!: string | null;
