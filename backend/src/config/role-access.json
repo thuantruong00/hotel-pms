@@ -1,0 +1,34 @@
+{
+  "pages": {
+    "root": ["accounts", "change-password"],
+    "super_admin": ["dashboard", "stays", "customers", "rooms", "accounts", "change-password"],
+    "admin": ["dashboard", "stays", "customers", "rooms", "change-password"],
+    "staff": ["dashboard", "stays", "customers", "change-password"]
+  },
+  "allow": {
+    "root": ["*"],
+    "super_admin": ["*"],
+    "admin": [
+      "rooms.read",
+      "rooms.write",
+      "room-types.write",
+      "room-rates.write",
+      "room-stays.read",
+      "room-stays.write",
+      "customers.read",
+      "customers.write",
+      "billing.read",
+      "billing.write"
+    ],
+    "staff": [
+      "rooms.read",
+      "room-stays.read",
+      "room-stays.write",
+      "customers.read",
+      "customers.write",
+      "billing.read",
+      "billing.write"
+    ]
+  },
+  "block": {}
+}

@@ -25,62 +25,78 @@ session or token.
 The server must load the user's role from the server-side session or database.
 The client must not be trusted to provide its own role.
 
-## Initial Roles
+## Roles
 
-The initial role model is:
+| Role | Who | Purpose |
+|---|---|---|
+| `root` | System | Initial setup only. Created on startup with `INIT=1` (`ROOT_USERNAME` / `ROOT_PASSWORD`). Used to create the owner account. |
+| `super_admin` | Hotel owner | Full access, including employee accounts. |
+| `admin` | Employee | Front-desk operations plus room, room type, and rate configuration. |
+| `staff` | Employee | Daily front-desk operations. (Covers the "staff/user" role.) |
 
-- `staff`: daily front-desk operations.
-- `manager`: staff operations plus configuration and oversight.
-- `admin`: system administration and full access.
+Employees are granted `admin` or `staff`. The owner uses `super_admin`.
 
-The existing backend contains legacy role names such as `guest`, `user`, and
-`root` in older middleware. These names must not be used in new APIs. They must
-be mapped or removed when authorization is implemented.
+### Account Management Rule
 
-## Initial Permission Matrix
+A user can only create, list, and update accounts whose role is strictly lower
+than their own, and can only assign such roles:
 
-| Capability | Staff | Manager | Admin |
-|---|---:|---:|---:|
-| View rooms | Yes | Yes | Yes |
-| View room availability | Yes | Yes | Yes |
-| Create reservation | Yes | Yes | Yes |
-| Check in and check out | Yes | Yes | Yes |
-| Manage customers | Yes | Yes | Yes |
-| Confirm payment status | Yes | Yes | Yes |
-| Manage room types | No | Yes | Yes |
-| Manage room rates | No | Yes | Yes |
-| Manage users | No | No | Yes |
-| Change system configuration | No | No | Yes |
+```text
+root        -> super_admin, admin, staff
+super_admin -> admin, staff
+admin       -> (none)
+staff       -> (none)
+```
 
-This matrix is the initial proposal and must be updated when business roles
-are formally approved.
+`root` can never be assigned through the API. Users change their own password
+through `POST /api/auth/change-password`, not through the account APIs.
+
+## Permission Matrix
+
+| Capability | Staff | Admin | Super admin | Root |
+|---|---:|---:|---:|---:|
+| View rooms and availability | Yes | Yes | Yes | Yes |
+| Create reservation, check in/out | Yes | Yes | Yes | Yes |
+| Manage customers | Yes | Yes | Yes | Yes |
+| Confirm payment status | Yes | Yes | Yes | Yes |
+| Manage rooms, room types, rates | No | Yes | Yes | Yes |
+| Manage accounts | No | No | Yes | Yes |
 
 ## JSON-Based Access Configuration
 
-Access configuration is stored in:
+Defaults are fixed in:
 
 ```text
-backend/data/roleAccess.json
+backend/src/config/role-access.json
 ```
 
-The file contains two maps:
+A deployment may override any role in `backend/data/roleAccess.json` (same
+shape, merged per role). The file contains three maps:
 
-- `allow`: permissions explicitly allowed for a role.
-- `block`: permissions explicitly denied for a role.
+- `pages`: frontend pages each role sees after login (`dashboard`, `stays`,
+  `customers`, `rooms`, `accounts`, `change-password`).
+- `allow`: permission codes allowed for a role (`*` = all).
+- `block`: permission codes denied for a role.
 
 Example:
 
 ```json
 {
+  "pages": {
+    "staff": ["dashboard", "stays", "customers", "change-password"]
+  },
   "allow": {
     "staff": ["rooms.read", "room-stays.write"],
-    "admin": ["*"]
+    "super_admin": ["*"]
   },
   "block": {
     "staff": ["room-rates.write"]
   }
 }
 ```
+
+Login and `GET /api/auth/me` return the user's `pages` and effective
+`permissions`. The frontend builds its menu and route guards from `pages`.
 
 Block rules take precedence over allow rules. Permission codes must be stable,
 lowercase, and use dot notation. Do not use display labels as permission codes.
@@ -99,7 +115,7 @@ Example:
 router.post(
   "/room-stays/:stayId/check-in",
   requireAuthentication,
-  requireRoles("staff", "manager", "admin"),
+  requirePermission("room-stays.write"),
   roomStayController.checkIn,
 );
 ```
@@ -131,7 +147,7 @@ service must also verify resource ownership or operational scope.
 
 Examples:
 
-- A work session must belong to the current employee before it is closed.
+- An account can only be managed by a user with a higher role.
 - A room stay must exist before it can be checked out.
 - A payment confirmation must record the current employee.
 

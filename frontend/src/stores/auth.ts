@@ -1,19 +1,27 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { get, post, tokenStorage } from '../api/client'
-import type { AuthUser, WorkSession } from '../api/types'
+import type { AuthUser, PageKey } from '../api/types'
+
+/** Menu order; the first page a role can see is its home page. */
+export const PAGE_ORDER: PageKey[] = ['dashboard', 'stays', 'customers', 'rooms', 'accounts', 'change-password']
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
-  const session = ref<WorkSession | null>(null)
-  const isManager = computed(() => user.value?.role === 'manager' || user.value?.role === 'admin')
-  const isAdmin = computed(() => user.value?.role === 'admin')
+
+  /** Pages come from the backend role-access.json; the backend still enforces every API. */
+  const canSee = (page: PageKey) => !!user.value?.pages.includes(page)
+  const can = (permission: string) =>
+    !!user.value && (user.value.permissions.includes('*') || user.value.permissions.includes(permission))
+  const homePath = computed(() => {
+    const first = PAGE_ORDER.find((p) => canSee(p))
+    return first ? `/${first}` : '/change-password'
+  })
 
   async function login(username: string, password: string) {
     const res = await post<{ accessToken: string; user: AuthUser }>('/auth/login', { username, password })
     tokenStorage.set(res.accessToken)
     user.value = res.user
-    await loadSession()
   }
 
   /** Restores the user from a stored token; returns false when not signed in. */
@@ -22,7 +30,6 @@ export const useAuthStore = defineStore('auth', () => {
     if (!tokenStorage.get()) return false
     try {
       user.value = await get<AuthUser>('/auth/me')
-      await loadSession()
       return true
     } catch {
       logout()
@@ -30,25 +37,14 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function loadSession() {
-    session.value = await get<WorkSession | null>('/work-sessions/current')
-  }
-
-  async function openSession() {
-    session.value = await post<WorkSession>('/work-sessions/open')
-  }
-
-  async function closeSession() {
-    if (!session.value) return
-    await post(`/work-sessions/${session.value.sessionId}/close`)
-    session.value = null
+  async function changePassword(currentPassword: string, newPassword: string) {
+    await post('/auth/change-password', { currentPassword, newPassword })
   }
 
   function logout() {
     tokenStorage.set(null)
     user.value = null
-    session.value = null
   }
 
-  return { user, session, isManager, isAdmin, login, restore, loadSession, openSession, closeSession, logout }
+  return { user, canSee, can, homePath, login, restore, changePassword, logout }
 })

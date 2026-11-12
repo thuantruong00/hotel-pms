@@ -25,7 +25,6 @@ export const createRoomStayBodySchema = z.strictObject({
   plannedCheckInAt: isoDateTime(),
   plannedCheckOutAt: isoDateTime(),
   customers: stayCustomers(),
-  sessionId: uuid().optional(),
   notes: optionalText(2000),
 });
 
@@ -61,8 +60,3 @@ export const finalizeBillBodySchema = z.strictObject({
 export const markPaidBodySchema = z.strictObject({
   paymentMethod: z.enum(PaymentMethod).optional(),
 });
-
-// ─── Work sessions ────────────────────────────────────────────────
-export const sessionIdParamSchema = z.strictObject({ sessionId: uuid() });
-
-export const listSessionStaysQuerySchema = z.strictObject({ ...paginationQuery });

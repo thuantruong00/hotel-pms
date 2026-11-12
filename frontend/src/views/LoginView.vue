@@ -62,7 +62,7 @@ const handleLogin = async () => {
   loading.value = true
   try {
     await auth.login(form.username.trim(), form.password)
-    router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard')
+    router.push(typeof route.query.redirect === 'string' ? route.query.redirect : auth.homePath)
   } catch (e) {
     error.value = errorText(e)
   } finally {

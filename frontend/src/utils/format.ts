@@ -26,6 +26,22 @@ export const roomStatusLabel: Record<string, string> = {
   inactive: 'Ngưng dùng',
 }
 
+export const roleLabels: Record<string, string> = {
+  root: 'Root (khởi tạo)',
+  super_admin: 'Chủ khách sạn',
+  admin: 'Quản lý',
+  staff: 'Nhân viên',
+}
+
+export const pageLabel: Record<string, string> = {
+  dashboard: 'Tổng quan',
+  stays: 'Đặt phòng / Lưu trú',
+  customers: 'Khách hàng',
+  rooms: 'Phòng & giá',
+  accounts: 'Tài khoản',
+  'change-password': 'Đổi mật khẩu',
+}
+
 export const pricingTypeLabel: Record<string, string> = {
   hourly: 'Theo giờ',
   overnight: 'Qua đêm',

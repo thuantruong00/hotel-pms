@@ -1,3 +1,4 @@
+import { In } from "typeorm";
 import { User } from "~/entities/user.entity";
 import { UserCredential } from "~/entities/user-credential.entity";
 import { PageQuery, toSkip } from "~/utils/pagination";
@@ -21,8 +22,9 @@ export const userRepository = {
   countByRole: (role: string, db: Db = defaultDb()) =>
     db.getRepository(User).count({ where: { role } }),
 
-  list: (q: PageQuery, db: Db = defaultDb()) =>
+  list: (q: PageQuery, roles: string[], db: Db = defaultDb()) =>
     db.getRepository(User).findAndCount({
+      where: { role: In(roles) },
       order: { createdAt: "DESC" },
       skip: toSkip(q),
       take: q.limit,

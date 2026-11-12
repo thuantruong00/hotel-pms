@@ -29,7 +29,7 @@ export class User {
   displayName!: string | null;
 
   @Column({ type: "varchar", length: 30, default: "staff" })
-  @IsIn(["admin", "manager", "staff"])
+  @IsIn(["root", "super_admin", "admin", "staff"])
   role!: string;
 
   @Column({ type: "varchar", length: 20, default: "active" })

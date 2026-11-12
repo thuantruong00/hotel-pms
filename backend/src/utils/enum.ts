@@ -23,11 +23,25 @@ export const ACTIVE_STAY_STATUSES: RoomStayStatus[] = [
   RoomStayStatus.CHECKED_IN,
 ];
 
+/**
+ * - root: only for initial setup (creates the owner account).
+ * - super_admin: the hotel owner, full access.
+ * - admin / staff: roles granted to employees.
+ */
 export enum UserRole {
-  STAFF = "staff",
-  MANAGER = "manager",
+  ROOT = "root",
+  SUPER_ADMIN = "super_admin",
   ADMIN = "admin",
+  STAFF = "staff",
 }
+
+/** Higher rank can manage accounts of strictly lower rank. */
+export const ROLE_RANK: Record<UserRole, number> = {
+  [UserRole.ROOT]: 4,
+  [UserRole.SUPER_ADMIN]: 3,
+  [UserRole.ADMIN]: 2,
+  [UserRole.STAFF]: 1,
+};
 
 export enum UserStatus {
   ACTIVE = "active",
@@ -47,11 +61,6 @@ export enum RatePricingType {
 export enum PaymentMethod {
   CASH = "cash",
   BANK_TRANSFER = "bank_transfer",
-}
-
-export enum WorkSessionStatus {
-  OPEN = "open",
-  CLOSED = "closed",
 }
 
 export enum IdentityStatus {

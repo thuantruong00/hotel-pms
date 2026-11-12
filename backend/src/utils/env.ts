@@ -11,9 +11,9 @@ export const env = {
   /** Comma-separated list of allowed origins; empty disables CORS headers. */
   CORS_ORIGIN: process.env.CORS_ORIGIN || "",
 
-  /** Initial admin account created when INIT=1 and no admin exists. */
-  ADMIN_USERNAME: process.env.ADMIN_USERNAME || "",
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "",
+  /** Root account created when INIT=1 and no root exists (initial setup only). */
+  ROOT_USERNAME: process.env.ROOT_USERNAME || "root",
+  ROOT_PASSWORD: process.env.ROOT_PASSWORD || "",
 
   // Legacy values still referenced by the socket service and utils/sign.ts.
   SOCKET_PORT: process.env.SOCKET_PORT || 3000,

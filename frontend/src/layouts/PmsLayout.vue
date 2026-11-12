@@ -13,14 +13,10 @@
         <div class="brand-mark small">HP</div>
         <div class="sidebar-brand-copy">
           <strong>Hotel PMS</strong>
-          <span>Lễ tân</span>
+          <span>{{ roleLabel }}</span>
         </div>
       </div>
       <n-menu :value="route.path" :options="menuOptions" @update:value="(key: string) => router.push(key)" />
-      <div class="sidebar-status">
-        <span class="status-dot" :class="{ off: !auth.session }"></span>
-        <span>{{ auth.session ? `Ca mở lúc ${fmtDateTime(auth.session.startedAt)}` : 'Chưa mở ca' }}</span>
-      </div>
     </n-layout-sider>
 
     <n-layout>
@@ -30,10 +26,6 @@
           <h1>{{ title }}</h1>
         </div>
         <div class="header-actions">
-          <n-button v-if="!auth.session" type="primary" secondary :loading="busy" @click="toggleSession">
-            Mở ca làm việc
-          </n-button>
-          <n-button v-else secondary :loading="busy" @click="toggleSession">Đóng ca</n-button>
           <n-avatar round color="#dfeee8">{{ initial }}</n-avatar>
           <div class="user-copy">
             <strong>{{ auth.user?.displayName || auth.user?.username }}</strong>
@@ -54,54 +46,28 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { MenuOption } from 'naive-ui'
-import { NAvatar, NButton, NLayout, NLayoutContent, NLayoutHeader, NLayoutSider, NMenu, useMessage } from 'naive-ui'
-import { useAuthStore } from '../stores/auth'
-import { errorText } from '../api/client'
-import { fmtDateTime } from '../utils/format'
+import { NAvatar, NButton, NLayout, NLayoutContent, NLayoutHeader, NLayoutSider, NMenu } from 'naive-ui'
+import { PAGE_ORDER, useAuthStore } from '../stores/auth'
+import { pageLabel, roleLabels } from '../utils/format'
 
 const props = defineProps<{ title: string; kicker?: string }>()
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const message = useMessage()
 const collapsed = ref(false)
-const busy = ref(false)
 
 const kicker = computed(() => props.kicker ?? 'HOTEL PMS')
 const initial = computed(() => (auth.user?.displayName || auth.user?.username || '?').charAt(0).toUpperCase())
-const roleLabel = computed(() => ({ staff: 'Nhân viên', manager: 'Quản lý', admin: 'Quản trị' })[auth.user?.role ?? 'staff'])
+const roleLabel = computed(() => roleLabels[auth.user?.role ?? 'staff'])
 
-const menuOptions: MenuOption[] = [
-  { label: 'Tổng quan', key: '/dashboard' },
-  { label: 'Đặt phòng / Lưu trú', key: '/stays' },
-  { label: 'Khách hàng', key: '/customers' },
-  { label: 'Phòng & giá', key: '/rooms' },
-]
-
-async function toggleSession() {
-  busy.value = true
-  try {
-    if (auth.session) {
-      await auth.closeSession()
-      message.success('Đã đóng ca')
-    } else {
-      await auth.openSession()
-      message.success('Đã mở ca')
-    }
-  } catch (e) {
-    message.error(errorText(e))
-  } finally {
-    busy.value = false
-  }
-}
+// Only the pages configured for the role (backend role-access.json) are shown.
+const menuOptions = computed<MenuOption[]>(() =>
+  PAGE_ORDER.filter((p) => auth.canSee(p)).map((p) => ({ label: pageLabel[p], key: `/${p}` })),
+)
 
 function logout() {
   auth.logout()
   router.push('/login')
 }
 </script>
-
-<style scoped>
-.status-dot.off { background: #c47b22; }
-</style>
