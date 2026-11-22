@@ -37,10 +37,10 @@ cms-project
 ├── README.md               // simple readme file
 └── *
 
-docker save -o docker-images/edgeon-1.0.3.tar edgeon:1.0.3
-docker load -i docker-images/edgeon-1.0.3.tar
+docker save -o docker-images/hotel-pms-server-1.0.1.tar hotel-pms-server:1.0.1
+docker load -i docker-images/hotel-pms-server-1.0.3.tar
 
-docker build -f Dockerfile.prod -t edgeon:1.0.18 .
+docker build -f Dockerfile.prod -t hotel-pms-server:1.0.18 .
 
 Commands (simple)
 1. Build dist (TypeScript -> dist):
@@ -50,10 +50,10 @@ Commands (simple)
    npm run start
 
 3. Build Docker dev image (runs tsx):
-   docker build -f Dockerfile -t edgeon:dev .
+   docker build -f Dockerfile -t hotel-pms-server:dev .
 
 4. Build Docker prod image (uses dist + data):
-   docker build -f Dockerfile.prod -t edgeon:1.0.1 .
+   docker build -f Dockerfile.prod -t hotel-pms-server:1.0.1 .
 
 Notes
 - Dockerfile.prod expects prebuilt dist and copies data/ into the image.

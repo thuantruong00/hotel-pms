@@ -11,6 +11,24 @@
           <n-button type="primary" @click="openCreate">+ Đặt phòng</n-button>
         </n-space>
       </n-space>
+      <n-space align="center" wrap style="margin-bottom: 16px">
+        <span class="filter-label">Thời gian:</span>
+        <n-radio-group v-model:value="dateFilter" @update:value="onDateFilterChange">
+          <n-radio-button value="all">Tất cả</n-radio-button>
+          <n-radio-button value="today">Hôm nay</n-radio-button>
+          <n-radio-button value="week">Tuần này</n-radio-button>
+          <n-radio-button value="custom">Khoảng ngày</n-radio-button>
+        </n-radio-group>
+        <n-date-picker
+          v-if="dateFilter === 'custom'"
+          v-model:value="dateRange"
+          type="daterange"
+          clearable
+          start-placeholder="Từ ngày"
+          end-placeholder="Đến ngày"
+          @update:value="onDateRangeChange"
+        />
+      </n-space>
       <n-data-table
         remote
         :columns="columns"
@@ -71,20 +89,20 @@
         </n-form-item>
 
         <!-- Inline sub-form: create a guest without leaving the booking -->
-        <div v-if="newCustomerOpen" class="new-customer">
-          <p class="new-customer-title">Thêm khách mới</p>
+        <div v-if="newCustomerOpen" class="inline-customer-form">
+          <p class="inline-customer-title">Thêm khách mới</p>
           <n-form label-placement="left" label-width="110" size="small">
-            <n-form-item label="Số CCCD">
-              <n-input v-model:value="newCustomer.identityNumber" placeholder="Có thể để trống" />
-            </n-form-item>
-            <n-form-item label="Họ tên"><n-input v-model:value="newCustomer.fullName" /></n-form-item>
-            <n-form-item label="SĐT"><n-input v-model:value="newCustomer.phone" /></n-form-item>
+            <n-form-item label="Họ tên"><n-input v-model:value="newCustomer.fullName" placeholder="Please Input" /></n-form-item>
+            <n-form-item label="SĐT"><n-input v-model:value="newCustomer.phone" placeholder="Please Input" /></n-form-item>
             <n-form-item label="Loại giấy tờ">
               <n-select v-model:value="newCustomer.identityType" :options="identityTypes" />
             </n-form-item>
-            <n-form-item label="Quốc tịch"><n-input v-model:value="newCustomer.nationality" /></n-form-item>
+            <n-form-item label="Số CCCD">
+              <n-input v-model:value="newCustomer.identityNumber" placeholder="Có thể để trống" />
+            </n-form-item>
+            <n-form-item label="Quốc tịch"><n-input v-model:value="newCustomer.nationality" placeholder="VN" /></n-form-item>
           </n-form>
-          <n-space justify="end">
+          <n-space justify="end" class="customer-submit">
             <n-button type="primary" size="small" :loading="savingCustomer" @click="createCustomer">Lưu và chọn khách này</n-button>
           </n-space>
         </div>
@@ -122,22 +140,26 @@
         </n-descriptions>
 
         <div v-if="stay.status === 'reserved'" key="actions-reserved" class="stay-actions">
-          <n-button type="primary" :loading="saving" @click="action('check-in', 'Đã nhận phòng')">Check-in</n-button>
+          <n-button type="primary" :loading="saving" @click="action('check-in', 'Đã nhận phòng')">Nhận phòng</n-button>
           <n-button :loading="saving" @click="confirmAction('cancel', 'Huỷ đặt phòng này?', 'Đã huỷ')">Huỷ</n-button>
           <n-button :loading="saving" @click="confirmAction('no-show', 'Đánh dấu khách không đến?', 'Đã đánh dấu không đến')">Không đến</n-button>
         </div>
-        <div v-else-if="stay.status === 'checked_in'" key="actions-checked-in" class="stay-actions">
-          <n-button type="primary" :loading="saving" @click="confirmAction('check-out', 'Trả phòng ngay bây giờ?', 'Đã trả phòng')">
-            Check-out
-          </n-button>
-        </div>
-
         <n-divider title-placement="left">Khách ({{ stay.guests?.length ?? 0 }})</n-divider>
-        <div v-for="g in stay.guests" :key="g.roomStayCustomerId" class="guest-row">
-          {{ g.customer?.fullName || '(chưa có tên)' }} <span class="muted">{{ g.customer?.phone }}</span>
-          <n-tag v-if="g.isPrimary" size="small" type="success" :bordered="false">Khách chính</n-tag>
+        <div v-if="stay.guests?.length" class="guest-list">
+          <div v-for="g in stay.guests" :key="g.roomStayCustomerId" class="guest-row">
+            <div class="guest-main">
+              <div class="guest-avatar">{{ (g.customer?.fullName || '?').charAt(0).toUpperCase() }}</div>
+              <div class="guest-info">
+                <strong>{{ g.customer?.fullName || '(chưa có tên)' }}</strong>
+                <span v-if="g.customer?.phone" class="muted">{{ g.customer.phone }}</span>
+              </div>
+            </div>
+            <n-tag v-if="g.isPrimary" size="small" type="success" :bordered="false">Khách chính</n-tag>
+          </div>
         </div>
-        <n-space v-if="stay.status === 'reserved' || stay.status === 'checked_in'" style="margin-top: 8px">
+        <n-empty v-else size="small" description="Chưa có khách trong phòng" />
+
+        <div v-if="stay.status === 'reserved' || stay.status === 'checked_in'" class="guest-controls">
           <n-select
             v-model:value="addCustomerId"
             filterable
@@ -146,13 +168,39 @@
             :options="customerOptions"
             :loading="searchingCustomers"
             placeholder="Thêm khách vào phòng"
-            style="width: 280px"
             @search="searchCustomers"
             @focus="searchCustomers('')"
           />
           <n-checkbox v-model:checked="addAsPrimary">Là khách chính</n-checkbox>
           <n-button :disabled="!addCustomerId" :loading="saving" @click="addCustomer">Thêm</n-button>
-        </n-space>
+        </div>
+        <n-button
+          v-if="stay.status === 'reserved' || stay.status === 'checked_in'"
+          secondary
+          size="small"
+          class="new-guest-button"
+          @click="toggleDetailNewCustomer"
+        >
+          {{ detailNewCustomerOpen ? 'Đóng' : '+ Khách mới' }}
+        </n-button>
+
+        <div v-if="detailNewCustomerOpen" class="inline-customer-form">
+          <p class="inline-customer-title">Thêm khách mới</p>
+          <n-form label-placement="left" label-width="110" size="small">
+            <n-form-item label="Họ tên"><n-input v-model:value="newCustomer.fullName" placeholder="Please Input" /></n-form-item>
+            <n-form-item label="SĐT"><n-input v-model:value="newCustomer.phone" placeholder="Please Input" /></n-form-item>
+            <n-form-item label="Loại giấy tờ">
+              <n-select v-model:value="newCustomer.identityType" :options="identityTypes" />
+            </n-form-item>
+            <n-form-item label="Số CCCD"><n-input v-model:value="newCustomer.identityNumber" placeholder="Có thể để trống" /></n-form-item>
+            <n-form-item label="Quốc tịch"><n-input v-model:value="newCustomer.nationality" placeholder="VN" /></n-form-item>
+          </n-form>
+          <n-space justify="end" class="customer-submit">
+            <n-button type="primary" size="small" :loading="savingCustomer" @click="createCustomerForStay">
+            Lưu và thêm vào phòng
+            </n-button>
+          </n-space>
+        </div>
 
         <!-- Bill -->
         <n-divider title-placement="left">Hoá đơn</n-divider>
@@ -171,13 +219,7 @@
                 <n-tag v-else type="warning" :bordered="false">Chưa thanh toán</n-tag>
               </n-descriptions-item>
             </n-descriptions>
-            <n-space v-if="!bill.isPaid" align="center" style="margin-top: 12px">
-              <n-radio-group v-model:value="paymentMethod">
-                <n-radio value="cash">Tiền mặt</n-radio>
-                <n-radio value="bank_transfer">Chuyển khoản</n-radio>
-              </n-radio-group>
-              <n-button type="primary" :loading="saving" @click="markPaid">Xác nhận đã thanh toán</n-button>
-            </n-space>
+            <p v-if="!bill.isPaid" class="muted">Hóa đơn cũ chưa thanh toán. Vui lòng xử lý theo quy trình quản lý.</p>
           </template>
 
           <template v-else-if="bill.preview">
@@ -187,21 +229,34 @@
               <n-descriptions-item v-else label="Phút tính thêm">{{ bill.preview.extraBilledMinutes }}</n-descriptions-item>
               <n-descriptions-item label="Tiền phòng (tạm tính)">{{ fmtMoney(bill.preview.roomAmount) }}</n-descriptions-item>
             </n-descriptions>
-            <template v-if="stay.status === 'checked_out'">
-              <n-form label-placement="left" label-width="110" style="margin-top: 12px">
-                <n-form-item label="Giảm giá"><n-input-number v-model:value="finalize.discountAmount" :min="0" :step="10000" style="width: 100%" /></n-form-item>
-                <n-form-item label="Phụ thu"><n-input-number v-model:value="finalize.surchargeAmount" :min="0" :step="10000" style="width: 100%" /></n-form-item>
-                <n-form-item label="Phạt"><n-input-number v-model:value="finalize.penaltyAmount" :min="0" :step="10000" style="width: 100%" /></n-form-item>
-                <n-form-item v-if="finalize.penaltyAmount" label="Lý do phạt"><n-input v-model:value="finalize.penaltyReason" /></n-form-item>
-              </n-form>
-              <n-button type="primary" :loading="saving" @click="finalizeBill">Chốt hoá đơn</n-button>
+            <template v-if="stay.status === 'checked_in' || stay.status === 'checked_out'">
+              <n-button type="primary" :loading="saving" @click="openPaymentConfirm">Thanh toán & trả phòng</n-button>
             </template>
-            <p v-else class="muted">Chốt hoá đơn sau khi khách trả phòng.</p>
+            <p v-else class="muted">Hóa đơn chưa sẵn sàng để thanh toán.</p>
           </template>
           <p v-else class="muted">Không có hoá đơn cho lượt đặt này.</p>
         </template>
       </n-drawer-content>
     </n-drawer>
+    <n-modal v-model:show="paymentConfirmOpen" preset="card" title="Xác nhận thanh toán & trả phòng" style="width: 520px">
+      <n-form label-placement="left" label-width="110">
+        <n-form-item label="Phụ thu"><n-input-number v-model:value="finalize.surchargeAmount" :min="0" :step="10000" style="width: 100%" /></n-form-item>
+        <n-descriptions :column="1" bordered class="payment-total">
+          <n-descriptions-item label="Tổng thanh toán"><strong>{{ fmtMoney(paymentTotal) }}</strong></n-descriptions-item>
+        </n-descriptions>
+        <n-form-item label="Thanh toán">
+          <n-radio-group v-model:value="paymentMethod">
+            <n-radio value="cash">Tiền mặt</n-radio>
+            <n-radio value="bank_transfer">Chuyển khoản</n-radio>
+          </n-radio-group>
+        </n-form-item>
+      </n-form>
+      <p class="muted">Sau khi xác nhận, hóa đơn sẽ được tạo ở trạng thái đã thanh toán và phòng sẽ chuyển sang đang dọn.</p>
+      <n-space justify="end">
+        <n-button @click="paymentConfirmOpen = false">Hủy</n-button>
+        <n-button type="primary" :loading="saving" @click="checkoutAndPay">Xác nhận</n-button>
+      </n-space>
+    </n-modal>
   </PmsLayout>
 </template>
 
@@ -210,7 +265,7 @@ import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import {
   NButton, NCard, NCheckbox, NDataTable, NDatePicker, NDescriptions, NDescriptionsItem, NDivider,
-  NDrawer, NDrawerContent, NForm, NFormItem, NInput, NInputNumber, NModal, NRadio, NRadioButton, NRadioGroup,
+  NDrawer, NDrawerContent, NEmpty, NForm, NFormItem, NInput, NInputNumber, NModal, NRadio, NRadioButton, NRadioGroup,
   NSelect, NSpace, NTag, useDialog, useMessage,
 } from 'naive-ui'
 import PmsLayout from '../layouts/PmsLayout.vue'
@@ -225,6 +280,8 @@ const saving = ref(false)
 
 // ─── List ─────────────────────────────────────────────────────────
 const statusFilter = ref('')
+const dateFilter = ref<'all' | 'today' | 'week' | 'custom'>('today')
+const dateRange = ref<[number, number] | null>(null)
 const page = ref<Paged<RoomStay>>({ items: [], page: 1, limit: 20, total: 0 })
 const pagination = computed(() => ({ page: page.value.page, pageSize: page.value.limit, itemCount: page.value.total }))
 
@@ -249,18 +306,88 @@ const columns: DataTableColumns<RoomStay> = [
             { default: () => `${fmtMoney(r.charge!.amount)} · ${r.charge!.isPaid ? 'đã TT' : 'chưa TT'}` })
         : '',
   },
-  { title: '', key: 'open', render: (r) => h(NButton, { size: 'small', onClick: () => openDetail(r.stayId) }, { default: () => 'Mở' }) },
+  {
+    title: '',
+    key: 'open',
+    render: (r) => h(NSpace, { size: 4 }, {
+      default: () => [
+        h(NButton, { size: 'small', onClick: () => openDetail(r.stayId) }, { default: () => 'Xem' }),
+        h(NButton, {
+          size: 'small',
+          title: 'Mở chi tiết trong tab mới',
+          'aria-label': 'Mở chi tiết trong tab mới',
+          onClick: () => openDetailInNewTab(r.stayId),
+        }, { default: () => 'Chi tiết ↗' }),
+      ],
+    }),
+  },
 ]
 
 async function load(p = 1) {
   loading.value = true
   try {
-    page.value = await get<Paged<RoomStay>>('/room-stays', { page: p, limit: 20, status: statusFilter.value || undefined })
+    const range = selectedDateRange()
+    page.value = await get<Paged<RoomStay>>('/room-stays', {
+      page: p,
+      limit: 20,
+      status: statusFilter.value || undefined,
+      from: range?.[0],
+      to: range?.[1],
+    })
   } catch (e) {
     message.error(errorText(e))
   } finally {
     loading.value = false
   }
+}
+
+function startOfDay(date: Date) {
+  const result = new Date(date)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
+function nextDay(date: Date) {
+  const result = new Date(date)
+  result.setDate(result.getDate() + 1)
+  return result
+}
+
+function selectedDateRange(): [string, string] | null {
+  const now = new Date()
+  if (dateFilter.value === 'all') return null
+
+  if (dateFilter.value === 'today') {
+    const from = startOfDay(now)
+    return [from.toISOString(), nextDay(from).toISOString()]
+  }
+
+  if (dateFilter.value === 'week') {
+    const from = startOfDay(now)
+    const day = from.getDay()
+    const daysSinceMonday = day === 0 ? 6 : day - 1
+    from.setDate(from.getDate() - daysSinceMonday)
+    return [from.toISOString(), nextDay(new Date(from.getTime() + 6 * 86400000)).toISOString()]
+  }
+
+  if (!dateRange.value) return null
+  const from = startOfDay(new Date(dateRange.value[0]))
+  const to = nextDay(startOfDay(new Date(dateRange.value[1])))
+  return [from.toISOString(), to.toISOString()]
+}
+
+function onDateFilterChange() {
+  if (dateFilter.value !== 'custom') dateRange.value = null
+  load(1)
+}
+
+function onDateRangeChange(value: [number, number] | null) {
+  dateRange.value = value
+  load(1)
+}
+
+function openDetailInNewTab(id: string) {
+  window.open(`${window.location.origin}/room-stays/${id}`, '_blank', 'noopener,noreferrer')
 }
 
 // ─── Customer search (shared) ─────────────────────────────────────
@@ -464,8 +591,11 @@ const stay = ref<RoomStay | null>(null)
 const bill = ref<Bill | null>(null)
 const addCustomerId = ref<string | null>(null)
 const addAsPrimary = ref(false)
+const detailNewCustomerOpen = ref(false)
 const paymentMethod = ref<'cash' | 'bank_transfer'>('cash')
+const paymentConfirmOpen = ref(false)
 const finalize = reactive({ discountAmount: 0, surchargeAmount: 0, penaltyAmount: 0, penaltyReason: '' })
+const paymentTotal = computed(() => Number(bill.value?.preview?.roomAmount ?? 0) + finalize.surchargeAmount)
 const paymentLabel = (m?: string) => (m === 'bank_transfer' ? 'chuyển khoản' : 'tiền mặt')
 
 async function openDetail(id: string) {
@@ -477,9 +607,55 @@ async function openDetail(id: string) {
     Object.assign(finalize, { discountAmount: 0, surchargeAmount: 0, penaltyAmount: 0, penaltyReason: '' })
     addCustomerId.value = null
     addAsPrimary.value = false
+    detailNewCustomerOpen.value = false
     detailOpen.value = true
   } catch (e) {
     message.error(errorText(e))
+  }
+}
+
+function toggleDetailNewCustomer() {
+  detailNewCustomerOpen.value = !detailNewCustomerOpen.value
+  if (!detailNewCustomerOpen.value) return
+
+  Object.assign(newCustomer, {
+    fullName: '',
+    phone: '',
+    identityType: 'citizen_id',
+    identityNumber: '',
+    nationality: 'VN',
+  })
+}
+
+async function createCustomerForStay() {
+  if (!stay.value) return
+
+  const orNull = (v: string) => v.trim() || null
+  savingCustomer.value = true
+  try {
+    const body: Record<string, unknown> = {
+      fullName: orNull(newCustomer.fullName),
+      phone: orNull(newCustomer.phone),
+    }
+    if (newCustomer.identityNumber.trim()) {
+      body.identity = {
+        identityType: newCustomer.identityType,
+        identityNumber: newCustomer.identityNumber.trim(),
+        nationality: orNull(newCustomer.nationality),
+      }
+    }
+
+    const created = await post<Customer>('/customers', body)
+    await post(`/room-stays/${stay.value.stayId}/customers`, {
+      customers: [{ customerId: created.customerId, isPrimary: addAsPrimary.value }],
+    })
+    message.success('Đã tạo và thêm khách vào phòng')
+    detailNewCustomerOpen.value = false
+    await Promise.all([openDetail(stay.value.stayId), load(page.value.page)])
+  } catch (e) {
+    message.error(errorText(e))
+  } finally {
+    savingCustomer.value = false
   }
 }
 
@@ -515,19 +691,23 @@ const addCustomer = () =>
     'Đã thêm khách',
   )
 
-const finalizeBill = () =>
-  mutate(
-    () => post(`/room-stays/${stay.value!.stayId}/bill/finalize`, {
+function openPaymentConfirm() {
+  Object.assign(finalize, { discountAmount: 0, surchargeAmount: 0, penaltyAmount: 0, penaltyReason: '' })
+  paymentConfirmOpen.value = true
+}
+
+const checkoutAndPay = async () => {
+  await mutate(
+    () => post(`/room-stays/${stay.value!.stayId}/bill/checkout-and-pay`, {
       discountAmount: finalize.discountAmount ?? 0,
       surchargeAmount: finalize.surchargeAmount ?? 0,
       penaltyAmount: finalize.penaltyAmount ?? 0,
       penaltyReason: finalize.penaltyReason.trim() || null,
     }),
-    'Đã chốt hoá đơn',
+    'Đã thanh toán và trả phòng',
   )
-
-const markPaid = () =>
-  mutate(() => post(`/room-stays/${stay.value!.stayId}/bill/mark-paid`, { paymentMethod: paymentMethod.value }), 'Đã ghi nhận thanh toán')
+  paymentConfirmOpen.value = false
+}
 
 // Keep the primary guest valid: default to the first selected customer.
 watch(
@@ -541,10 +721,28 @@ onMounted(() => load(1))
 </script>
 
 <style scoped>
-.guest-row { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
+.guest-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; }
+.guest-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border: 1px solid #e7ece9; border-radius: 8px; background: #fbfdfc; }
+.guest-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.guest-avatar { width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; color: #0b5a3f; background: #dff3e9; font-size: 13px; font-weight: 700; }
+.guest-info { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.guest-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guest-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; margin-top: 10px; }
+.new-guest-button { margin-top: 8px; }
 .stay-actions { display: flex; gap: 8px; margin: 16px 0; }
 .customer-pick { display: flex; gap: 8px; width: 100%; }
 .customer-pick .n-select { flex: 1; min-width: 0; }
-.new-customer { margin: -8px 0 16px 120px; padding: 12px 16px; border: 1px dashed #b9e2cf; border-radius: 8px; background: #f6fbf8; }
-.new-customer-title { margin: 0 0 8px; font-weight: 600; color: #0b5a3f; }
+.inline-customer-form { margin: 12px 0 16px; padding: 14px 16px 12px; border: 1px dashed #a9d8c1; border-radius: 8px; background: #f6fbf8; }
+.inline-customer-title { margin: 0 0 10px; color: #0b5a3f; font-weight: 700; }
+.inline-customer-form :deep(.n-form-item) { margin-bottom: 12px; }
+.inline-customer-form :deep(.n-form-item:last-child) { margin-bottom: 4px; }
+.customer-submit { margin-top: 4px; }
+.payment-total { margin-bottom: 16px; }
+.filter-label { color: #52615a; font-size: 14px; font-weight: 600; }
+
+@media (max-width: 480px) {
+  .guest-controls { grid-template-columns: 1fr auto; }
+  .guest-controls .n-select { grid-column: 1 / -1; }
+  .guest-controls .n-checkbox { grid-column: 1; }
+}
 </style>

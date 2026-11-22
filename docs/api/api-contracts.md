@@ -120,6 +120,7 @@ GET   /api/room-types/:roomTypeId/rates
 POST  /api/room-types/:roomTypeId/rates  # room-rates.write
 GET   /api/room-rates/:rateId
 PATCH /api/room-rates/:rateId            # room-rates.write
+DELETE /api/room-rates/:rateId           # room-rates.write; only when unused
 GET   /api/room-stays                    # filters: status, roomId, customerId, from, to, page, limit
 ```
 
@@ -151,7 +152,7 @@ calculated by the backend.
 ```text
 CUSTOMER_REQUIRED, DUPLICATE_CUSTOMER, MULTIPLE_PRIMARY_CUSTOMERS,
 CUSTOMER_ALREADY_IN_STAY, ROOM_STAY_NOT_FOUND, ROOM_OCCUPIED,
-ROOM_TYPE_NOT_FOUND, ROOM_TYPE_CODE_EXISTS, ROOM_NUMBER_EXISTS, RATE_CODE_EXISTS,
+ROOM_TYPE_NOT_FOUND, ROOM_TYPE_IN_USE, RATE_IN_USE, ROOM_NUMBER_EXISTS,
 IDENTITY_ALREADY_EXISTS, IDENTITY_NOT_FOUND, IDENTITY_ALREADY_REPLACED,
 BILL_ALREADY_FINALIZED, BILL_NOT_FINALIZED, INVALID_BILL_AMOUNT,
 ROLE_NOT_ASSIGNABLE, ACCOUNT_NOT_MANAGEABLE, CANNOT_CHANGE_OWN_ACCOUNT,

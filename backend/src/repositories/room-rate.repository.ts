@@ -5,9 +5,6 @@ export const roomRateRepository = {
   findById: (id: string, db: Db = defaultDb()) =>
     db.getRepository(RoomRatePlan).findOne({ where: { ratePlanId: id } }),
 
-  findByCode: (roomTypeId: string, code: string, db: Db = defaultDb()) =>
-    db.getRepository(RoomRatePlan).findOne({ where: { roomTypeId, code } }),
-
   listByRoomType: (
     roomTypeId: string,
     filter: { isActive?: boolean },
@@ -20,6 +17,12 @@ export const roomRateRepository = {
           : { roomTypeId, isActive: filter.isActive },
       order: { isDefault: "DESC", name: "ASC" },
     }),
+
+  countByRoomTypeId: (roomTypeId: string, db: Db = defaultDb()) =>
+    db.getRepository(RoomRatePlan).count({ where: { roomTypeId } }),
+
+  remove: (ratePlanId: string, db: Db = defaultDb()) =>
+    db.getRepository(RoomRatePlan).delete({ ratePlanId }),
 
   /** Clears the default flag on other plans of the room type. */
   clearDefault: (roomTypeId: string, exceptRatePlanId: string, db: Db = defaultDb()) =>

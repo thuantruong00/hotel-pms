@@ -29,8 +29,8 @@ The client must not be trusted to provide its own role.
 
 | Role | Who | Purpose |
 |---|---|---|
-| `root` | System | Initial setup only. Created on startup with `INIT=1` (`ROOT_USERNAME` / `ROOT_PASSWORD`). Used to create the owner account. |
-| `super_admin` | Hotel owner | Full access, including employee accounts. |
+| `root` | System administrator | Created on startup with `INIT=1` (`ROOT_USERNAME` / `ROOT_PASSWORD`). Full access, including all account roles except assigning `root`. |
+| `super_admin` | Hotel owner | Full access, including employee accounts and all PMS operations. |
 | `admin` | Employee | Front-desk operations plus room, room type, and rate configuration. |
 | `staff` | Employee | Daily front-desk operations. (Covers the "staff/user" role.) |
 
@@ -44,12 +44,14 @@ than their own, and can only assign such roles:
 ```text
 root        -> super_admin, admin, staff
 super_admin -> admin, staff
-admin       -> (none)
+admin       -> staff
 staff       -> (none)
 ```
 
 `root` can never be assigned through the API. Users change their own password
-through `POST /api/auth/change-password`, not through the account APIs.
+through `POST /api/auth/change-password`, not through the account APIs. Root and
+super_admin can use all configured PMS pages; account management still only
+allows managing accounts with a lower role.
 
 ## Permission Matrix
 
@@ -60,7 +62,7 @@ through `POST /api/auth/change-password`, not through the account APIs.
 | Manage customers | Yes | Yes | Yes | Yes |
 | Confirm payment status | Yes | Yes | Yes | Yes |
 | Manage rooms, room types, rates | No | Yes | Yes | Yes |
-| Manage accounts | No | No | Yes | Yes |
+| Manage accounts | No | Yes (staff only) | Yes | Yes |
 
 ## JSON-Based Access Configuration
 

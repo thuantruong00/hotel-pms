@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import RoomStaysView from '../views/RoomStaysView.vue'
+import RoomStayDetailView from '../views/RoomStayDetailView.vue'
 import CustomersView from '../views/CustomersView.vue'
 import RoomsView from '../views/RoomsView.vue'
 import AccountsView from '../views/AccountsView.vue'
@@ -24,6 +25,7 @@ const router = createRouter({
     { path: '/login', component: LoginView, meta: { public: true } },
     { path: '/dashboard', component: DashboardView, meta: { page: 'dashboard' } },
     { path: '/stays', component: RoomStaysView, meta: { page: 'stays' } },
+    { path: '/room-stays/:stayId', component: RoomStayDetailView, meta: { page: 'stays' } },
     { path: '/customers', component: CustomersView, meta: { page: 'customers' } },
     { path: '/rooms', component: RoomsView, meta: { page: 'rooms' } },
     { path: '/accounts', component: AccountsView, meta: { page: 'accounts' } },

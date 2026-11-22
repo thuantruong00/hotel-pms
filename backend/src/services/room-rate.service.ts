@@ -2,12 +2,12 @@ import { RoomRatePlan } from "~/entities/room-rate-plan.entity";
 import { AppError } from "~/errors";
 import { runInTransaction } from "~/repositories/db";
 import { roomRateRepository } from "~/repositories/room-rate.repository";
+import { roomStayRepository } from "~/repositories/room-stay.repository";
 import { roomTypeRepository } from "~/repositories/room-type.repository";
 import { RatePricingType } from "~/utils/enum";
 import { toMoneyString } from "~/utils/money";
 
 export type RoomRateInput = {
-  code: string;
   name: string;
   pricingType: RatePricingType;
   basePrice: number;
@@ -39,7 +39,6 @@ function assertValidity(validFrom?: string | null, validTo?: string | null) {
 function toEntityFields(input: Partial<RoomRateInput>): Partial<RoomRatePlan> {
   const out: Partial<RoomRatePlan> = {};
   const copy = [
-    "code",
     "name",
     "pricingType",
     "baseDurationMinutes",
@@ -81,10 +80,6 @@ export const roomRateService = {
     const roomType = await roomTypeRepository.findById(roomTypeId);
     if (!roomType) throw AppError.notFound("ROOM_TYPE_NOT_FOUND", "The room type does not exist");
     assertValidity(input.validFrom, input.validTo);
-    if (await roomRateRepository.findByCode(roomTypeId, input.code)) {
-      throw AppError.conflict("RATE_CODE_EXISTS", "The rate code already exists for this room type");
-    }
-
     return runInTransaction(async (db) => {
       const saved = await roomRateRepository.save(
         {
@@ -106,12 +101,6 @@ export const roomRateService = {
       input.validFrom !== undefined ? input.validFrom : rate.validFrom,
       input.validTo !== undefined ? input.validTo : rate.validTo,
     );
-    if (input.code && input.code !== rate.code) {
-      if (await roomRateRepository.findByCode(rate.roomTypeId, input.code)) {
-        throw AppError.conflict("RATE_CODE_EXISTS", "The rate code already exists for this room type");
-      }
-    }
-
     // Finalized bills keep their own snapshot on RoomStayCharge, so editing a
     // rate never changes historical bills.
     return runInTransaction(async (db) => {
@@ -119,5 +108,19 @@ export const roomRateService = {
       if (input.isDefault) await roomRateRepository.clearDefault(rate.roomTypeId, rateId, db);
       return roomRateRepository.findById(rateId, db);
     });
+  },
+
+  async remove(rateId: string) {
+    const rate = await roomRateRepository.findById(rateId);
+    if (!rate) throw notFound();
+
+    const stayCount = await roomStayRepository.countByRatePlanId(rateId);
+    if (stayCount > 0) {
+      throw AppError.conflict("RATE_IN_USE", "The room rate cannot be deleted because it is used by room stays", {
+        stayCount,
+      });
+    }
+
+    await roomRateRepository.remove(rateId);
   },
 };

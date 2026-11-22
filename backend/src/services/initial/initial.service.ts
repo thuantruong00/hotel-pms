@@ -23,5 +23,9 @@ export const initialService = async () => {
   }
 
   const created = await userService.ensureInitialRoot(env.ROOT_USERNAME, env.ROOT_PASSWORD);
-  logger.info(created ? `Root account "${created.username}" created` : "Root account already exists; skip seed");
+  logger.info(
+    created
+      ? `Root account "${created.username}" created`
+      : "Root bootstrap skipped: root already exists or the configured username is already in use",
+  );
 };

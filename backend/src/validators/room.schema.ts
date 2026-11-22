@@ -13,12 +13,6 @@ import {
 
 // ─── Room types ───────────────────────────────────────────────────
 const roomTypeShape = {
-  code: z
-    .string()
-    .trim()
-    .min(1)
-    .max(30)
-    .regex(/^[A-Za-z0-9_-]+$/, "Only letters, digits, underscore, and dash"),
   name: z.string().trim().min(1).max(100),
   capacity: z.number().int().min(1).max(50),
   bedCount: z.number().int().min(0).max(20),
@@ -33,7 +27,6 @@ export const createRoomTypeBodySchema = z.strictObject({
 });
 
 export const updateRoomTypeBodySchema = nonEmptyPatch({
-  code: roomTypeShape.code.optional(),
   name: roomTypeShape.name.optional(),
   capacity: roomTypeShape.capacity.optional(),
   bedCount: roomTypeShape.bedCount.optional(),
@@ -87,12 +80,6 @@ export const availabilityQuerySchema = z.strictObject({
 const minutes = (max: number) => z.number().int().min(0).max(max);
 
 const rateShape = {
-  code: z
-    .string()
-    .trim()
-    .min(1)
-    .max(30)
-    .regex(/^[A-Za-z0-9_-]+$/, "Only letters, digits, underscore, and dash"),
   name: z.string().trim().min(1).max(100),
   pricingType: z.enum(RatePricingType),
   basePrice: money(),
@@ -114,7 +101,6 @@ export const createRoomRateBodySchema = z.strictObject(rateShape);
 
 export const updateRoomRateBodySchema = nonEmptyPatch({
   ...rateShape,
-  code: rateShape.code.optional(),
   name: rateShape.name.optional(),
   pricingType: rateShape.pricingType.optional(),
   basePrice: rateShape.basePrice.optional(),

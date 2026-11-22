@@ -48,6 +48,9 @@ export const roomRepository = {
   findByNumber: (roomNumber: string, db: Db = defaultDb()) =>
     db.getRepository(Room).findOne({ where: { roomNumber } }),
 
+  countByRoomTypeId: (roomTypeId: string, db: Db = defaultDb()) =>
+    db.getRepository(Room).count({ where: { roomTypeId } }),
+
   list: (f: RoomListFilter, db: Db = defaultDb()) => {
     const qb = db
       .getRepository(Room)

@@ -1,8 +1,8 @@
 {
   "pages": {
-    "root": ["accounts", "change-password"],
+    "root": ["dashboard", "stays", "customers", "rooms", "accounts", "change-password"],
     "super_admin": ["dashboard", "stays", "customers", "rooms", "accounts", "change-password"],
-    "admin": ["dashboard", "stays", "customers", "rooms", "change-password"],
+    "admin": ["dashboard", "stays", "customers", "rooms", "accounts", "change-password"],
     "staff": ["dashboard", "stays", "customers", "change-password"]
   },
   "allow": {
@@ -18,7 +18,8 @@
       "customers.read",
       "customers.write",
       "billing.read",
-      "billing.write"
+      "billing.write",
+      "users.manage"
     ],
     "staff": [
       "rooms.read",

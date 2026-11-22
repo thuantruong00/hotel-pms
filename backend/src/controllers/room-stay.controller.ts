@@ -75,4 +75,12 @@ export const billingController = {
       "Bill marked as paid",
     );
   }),
+
+  checkoutAndPay: asyncHandler(async (req: Request, res: Response) => {
+    sendData(
+      res,
+      await billingService.checkoutAndPay(req.params.stayId, req.body, currentUser(req)),
+      "Bill paid and room stay checked out",
+    );
+  }),
 };

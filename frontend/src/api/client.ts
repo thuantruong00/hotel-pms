@@ -73,3 +73,6 @@ export const post = async <T>(url: string, body: object = {}) =>
   (await http.post<{ data: T }>(url, body)).data.data
 export const patch = async <T>(url: string, body: object) =>
   (await http.patch<{ data: T }>(url, body)).data.data
+export const del = async (url: string) => {
+  await http.delete(url)
+}

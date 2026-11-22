@@ -14,9 +14,6 @@ export class RoomType {
   @PrimaryGeneratedColumn("uuid", { name: "room_type_id" })
   roomTypeId!: string;
 
-  @Column({ type: "varchar", length: 30, unique: true })
-  code!: string;
-
   @Column({ type: "varchar", length: 100 })
   name!: string;
 

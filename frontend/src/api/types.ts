@@ -20,7 +20,6 @@ export type AuthUser = Account & {
 
 export type RoomType = {
   roomTypeId: string
-  code: string
   name: string
   capacity: number
   bedCount: number
@@ -34,7 +33,6 @@ export type PricingType = 'hourly' | 'overnight' | 'daily'
 export type RoomRate = {
   ratePlanId: string
   roomTypeId: string
-  code: string
   name: string
   pricingType: PricingType
   basePrice: string

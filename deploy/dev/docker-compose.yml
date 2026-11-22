@@ -18,5 +18,34 @@ services:
       retries: 10
     restart: unless-stopped
 
+  server:
+    image: "${BACKEND_IMAGE:-hotel-pms-server:1.0.1}"
+    container_name: hotel-pms-server-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: "development"
+      PORT: "8002"
+      DB_CONNECT_STRING: "postgres://${POSTGRES_USER:-pms_dev}:${POSTGRES_PASSWORD:-pms12345}@postgres:5432/${POSTGRES_DB:-hotel_pms_dev}"
+      JWT_SECRET: "${JWT_SECRET:-hotel-pms-dev-secret}"
+      JWT_EXPIRES_IN: "${JWT_EXPIRES_IN:-12h}"
+      CORS_ORIGIN: "${CORS_ORIGIN:-}"
+      INIT: "${INIT:-0}"
+      ROOT_USERNAME: "${ROOT_USERNAME:-root}"
+      ROOT_PASSWORD: "${ROOT_PASSWORD:-}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8002}:8002"
+
+  nginx:
+    image: "${FRONTEND_IMAGE:-hotel-pms-web:1.0.1}"
+    container_name: hotel-pms-nginx-dev
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+
 volumes:
   hotel_pms_postgres_dev_data:

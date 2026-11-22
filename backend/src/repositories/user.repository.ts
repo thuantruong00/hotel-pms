@@ -16,6 +16,9 @@ export const userRepository = {
       .getRepository(User)
       .findOne({ where: { username }, relations: { credentials: true } }),
 
+  findByUsername: (username: string, db: Db = defaultDb()) =>
+    db.getRepository(User).findOne({ where: { username } }),
+
   existsByUsername: (username: string, db: Db = defaultDb()) =>
     db.getRepository(User).exists({ where: { username } }),
 
