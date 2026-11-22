@@ -12,22 +12,36 @@ const username = () =>
 
 const password = () => z.string().min(8).max(72);
 
+/** Roles that can be assigned through the API. `root` is created only at setup. */
+const assignableRole = () =>
+  z.enum([UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.STAFF]);
+
 export const loginBodySchema = z.strictObject({
   username: z.string().trim().min(1).max(80),
   password: z.string().min(1).max(72),
 });
 
+export const changePasswordBodySchema = z
+  .strictObject({
+    currentPassword: z.string().min(1).max(72),
+    newPassword: password(),
+  })
+  .refine((v) => v.currentPassword !== v.newPassword, {
+    message: "The new password must differ from the current password",
+    path: ["newPassword"],
+  });
+
 export const createUserBodySchema = z.strictObject({
   username: username(),
   displayName: optionalText(150),
-  role: z.enum(UserRole),
+  role: assignableRole(),
   status: z.enum(UserStatus).optional(),
   password: password(),
 });
 
 export const updateUserBodySchema = nonEmptyPatch({
   displayName: optionalText(150),
-  role: z.enum(UserRole).optional(),
+  role: assignableRole().optional(),
   status: z.enum(UserStatus).optional(),
   password: password().optional(),
 });

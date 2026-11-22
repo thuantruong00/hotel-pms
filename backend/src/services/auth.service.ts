@@ -7,6 +7,7 @@ import { LoginLockMinutes, MaxFailedLoginAttempts } from "~/utils/const";
 import { UserRole, UserStatus } from "~/utils/enum";
 import { env } from "~/utils/env";
 import { logger } from "~/utils/logger";
+import { accessForRole } from "~/config/roleAccess";
 import { User } from "~/entities/user.entity";
 import { UserCredential } from "~/entities/user-credential.entity";
 
@@ -34,6 +35,9 @@ function jwtSecret(): string {
 }
 
 const VALID_ROLES = new Set<string>(Object.values(UserRole));
+
+/** The user plus the pages and permission codes their role grants (from role-access.json). */
+export const withAccess = (user: AuthUser) => ({ ...user, ...accessForRole(user.role) });
 
 export const toAuthUser = (user: User): AuthUser => ({
   userId: user.userId,
@@ -110,7 +114,26 @@ export const authService = {
       expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
     });
 
-    return { accessToken, tokenType: "Bearer", user: toAuthUser(user) };
+    return { accessToken, tokenType: "Bearer", user: withAccess(toAuthUser(user)) };
+  },
+
+  /** Changes the signed-in user's own password after verifying the current one. */
+  async changePassword(actor: AuthUser, currentPassword: string, newPassword: string) {
+    const user = await userRepository.findByIdWithCredential(actor.userId);
+    const credential = user?.credentials;
+    if (!user || !credential) throw AppError.unauthorized();
+
+    if (!(await bcrypt.compare(currentPassword, credential.passwordHash))) {
+      throw AppError.unprocessable("INVALID_CURRENT_PASSWORD", "The current password is incorrect");
+    }
+
+    await userRepository.saveCredential({
+      credentialId: credential.credentialId,
+      passwordHash: await hashPassword(newPassword),
+      passwordChangedAt: new Date(),
+      failedAttempts: 0,
+      lockedUntil: null,
+    });
   },
 
   /** Verifies the token and reloads the user, role, and status from the database. */

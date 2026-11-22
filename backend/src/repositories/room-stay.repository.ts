@@ -8,7 +8,6 @@ import { Db, defaultDb } from "./db";
 export type RoomStayListFilter = PageQuery & {
   status?: RoomStayStatus;
   roomId?: string;
-  sessionId?: string;
   customerId?: string;
   /** Stays whose planned range overlaps [from, to). */
   from?: Date;
@@ -88,7 +87,6 @@ export const roomStayRepository = {
 
     if (f.status) qb.andWhere("stay.status = :status", { status: f.status });
     if (f.roomId) qb.andWhere("stay.roomId = :roomId", { roomId: f.roomId });
-    if (f.sessionId) qb.andWhere("stay.sessionId = :sessionId", { sessionId: f.sessionId });
     if (f.customerId) {
       qb.andWhere(
         "EXISTS (SELECT 1 FROM room_stay_customers rsc WHERE rsc.stay_id = stay.stay_id AND rsc.customer_id = :customerId)",

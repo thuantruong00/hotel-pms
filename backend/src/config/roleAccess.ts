@@ -1,17 +1,23 @@
 import fs from "fs";
 import path from "path";
-import { DefaultRolePermissions } from "./permissions";
+import defaults from "./role-access.json";
 
 /**
  * Role access configuration (docs/api/authorization.md).
- * `block` rules always take precedence over `allow` rules.
+ *
+ * - `pages`: frontend pages each role may see.
+ * - `allow` / `block`: API permission codes; `block` always wins.
+ *
+ * Defaults live in `src/config/role-access.json`. A deployment may override
+ * any role by placing `data/roleAccess.json` next to the app.
  */
 export interface IRoleAccess {
+  pages: Record<string, string[]>;
   allow: Record<string, string[]>;
   block: Record<string, string[]>;
 }
 
-const roleAccessDataPath = path.resolve(process.cwd(), "data", "roleAccess.json");
+const overridePath = path.resolve(process.cwd(), "data", "roleAccess.json");
 
 const isRoleTable = (table: unknown): table is Record<string, string[]> =>
   !!table &&
@@ -21,27 +27,32 @@ const isRoleTable = (table: unknown): table is Record<string, string[]> =>
     (codes) => Array.isArray(codes) && codes.every((c) => typeof c === "string"),
   );
 
-function readRoleAccessFromDataFile(): Partial<IRoleAccess> | null {
+function readOverride(): Partial<IRoleAccess> | null {
   try {
-    if (!fs.existsSync(roleAccessDataPath)) return null;
-    const raw = fs.readFileSync(roleAccessDataPath, "utf-8").trim();
+    if (!fs.existsSync(overridePath)) return null;
+    const raw = fs.readFileSync(overridePath, "utf-8").trim();
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<IRoleAccess>;
-    if (parsed.allow !== undefined && !isRoleTable(parsed.allow)) return null;
-    if (parsed.block !== undefined && !isRoleTable(parsed.block)) return null;
+    for (const key of ["pages", "allow", "block"] as const) {
+      if (parsed[key] !== undefined && !isRoleTable(parsed[key])) {
+        throw new Error(`"${key}" must map role names to string arrays`);
+      }
+    }
     return parsed;
-  } catch {
-    console.error("Invalid data/roleAccess.json, falling back to defaults");
+  } catch (err) {
+    console.error(`Invalid data/roleAccess.json, using defaults: ${(err as Error).message}`);
     return null;
   }
 }
 
-const fromFile = readRoleAccessFromDataFile();
+const base = defaults as IRoleAccess;
+const override = readOverride();
 
 export const RoleAccess: IRoleAccess = {
-  allow: { ...DefaultRolePermissions, ...(fromFile?.allow ?? {}) },
-  block: { ...(fromFile?.block ?? {}) },
+  pages: { ...base.pages, ...(override?.pages ?? {}) },
+  allow: { ...base.allow, ...(override?.allow ?? {}) },
+  block: { ...base.block, ...(override?.block ?? {}) },
 };
 
 /** Decides whether a role holds a permission code. */
@@ -51,4 +62,13 @@ export function hasPermission(role: string, permission: string): boolean {
 
   const allowed = RoleAccess.allow[role] ?? [];
   return allowed.includes("*") || allowed.includes(permission);
+}
+
+/** Pages and effective permission codes for a role, sent to the frontend. */
+export function accessForRole(role: string) {
+  const blocked = RoleAccess.block[role] ?? [];
+  return {
+    pages: RoleAccess.pages[role] ?? [],
+    permissions: (RoleAccess.allow[role] ?? []).filter((p) => !blocked.includes(p)),
+  };
 }

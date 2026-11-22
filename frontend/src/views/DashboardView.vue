@@ -39,7 +39,7 @@
             <strong>{{ row.count }} phòng</strong>
           </div>
           <n-empty v-if="!roomRows.length" description="Chưa có phòng" />
-          <n-button secondary block class="room-button" @click="router.push('/rooms')">Quản lý phòng</n-button>
+          <n-button v-if="auth.canSee('rooms')" secondary block class="room-button" @click="router.push('/rooms')">Quản lý phòng</n-button>
         </n-card>
       </div>
     </div>
@@ -49,6 +49,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import type { DataTableColumns } from 'naive-ui'
 import { NButton, NCard, NDataTable, NEmpty, NGi, NGrid, NSpace, NTag, useMessage } from 'naive-ui'
 import PmsLayout from '../layouts/PmsLayout.vue'
@@ -57,6 +58,7 @@ import type { Paged, Room, RoomStay } from '../api/types'
 import { fmtDateTime, roomStatusLabel, stayStatusLabel } from '../utils/format'
 
 const router = useRouter()
+const auth = useAuthStore()
 const message = useMessage()
 const loading = ref(false)
 const rooms = ref<Room[]>([])

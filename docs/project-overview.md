@@ -3,7 +3,7 @@
 ## Purpose
 
 Hotel PMS supports front-desk operations for room reservations, guest stays,
-room pricing, billing summaries, payment status, and employee work sessions.
+room pricing, billing summaries, payment status, and employee accounts.
 
 ## Current Scope
 
@@ -15,7 +15,7 @@ room pricing, billing summaries, payment status, and employee work sessions.
 - Multiple customers in one room stay
 - One summary bill per room stay
 - Payment status and payment method tracking
-- Work session management
+- Employee accounts with role-based pages (root, super_admin, admin, staff)
 
 ## Out of Scope
 
@@ -35,7 +35,7 @@ room pricing, billing summaries, payment status, and employee work sessions.
 - `RoomStay`: one reservation or actual stay for one room.
 - `RoomStayCustomer`: a customer assigned to a room stay.
 - `RoomStayCharge`: the summary bill for one room stay.
-- `WorkSession`: the employee's active work period.
+- `WorkSession`: legacy shift record. The open/close shift flow is removed; signed-in users operate directly.
 
 ## Domain Relationships
 
@@ -45,6 +45,4 @@ Room 1 ─── N RoomStay
 RoomStay 1 ─── N RoomStayCustomer
 Customer 1 ─── N RoomStayCustomer
 RoomStay 1 ─── 1 RoomStayCharge
-User 1 ─── N WorkSession
-WorkSession 1 ─── N RoomStay
 ```

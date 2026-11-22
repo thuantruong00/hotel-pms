@@ -4,7 +4,7 @@
 
 ```text
 POST  /api/customers
-GET   /api/customers
+GET   /api/customers            # ?search=...&searchBy=all|name|phone|identity
 GET   /api/customers/:customerId
 PATCH /api/customers/:customerId
 POST  /api/customers/:customerId/identities
@@ -42,14 +42,19 @@ POST /api/room-stays/:stayId/bill/finalize
 POST /api/room-stays/:stayId/bill/mark-paid
 ```
 
-## Work Session APIs
+## Account APIs
 
 ```text
-POST /api/work-sessions/open
-GET  /api/work-sessions/current
-POST /api/work-sessions/:sessionId/close
-GET  /api/work-sessions/:sessionId/room-stays
+POST  /api/auth/login             # -> { accessToken, user: { ..., role, pages, permissions } }
+GET   /api/auth/me                # same user shape as login
+POST  /api/auth/change-password   # { currentPassword, newPassword } (own account)
+GET   /api/users                  # users.manage; lists only lower-role accounts + assignableRoles
+POST  /api/users                  # users.manage; { username, displayName?, role, password }
+PATCH /api/users/:userId          # users.manage; { displayName?, role?, status?, password? }
 ```
+
+The open/close work session APIs were removed: a signed-in user operates
+directly, and each room stay records `created_by_user_id`.
 
 ## Create RoomStay Contract
 
@@ -66,8 +71,7 @@ GET  /api/work-sessions/:sessionId/room-stays
       "customerId": "uuid",
       "isPrimary": true
     }
-  ],
-  "sessionId": "uuid"
+  ]
 }
 ```
 
@@ -111,11 +115,6 @@ Endpoints required to operate the contracts above. All responses use the
 standard `{ data, message }` / `{ error: { code, message } }` format.
 
 ```text
-POST  /api/auth/login                    # { username, password } -> { accessToken, tokenType, user }
-GET   /api/auth/me
-GET   /api/users                         # users.manage (admin)
-POST  /api/users                         # users.manage (admin)
-PATCH /api/users/:userId                 # users.manage (admin)
 GET   /api/rooms/:roomId
 GET   /api/room-types/:roomTypeId/rates
 POST  /api/room-types/:roomTypeId/rates  # room-rates.write
@@ -155,8 +154,8 @@ CUSTOMER_ALREADY_IN_STAY, ROOM_STAY_NOT_FOUND, ROOM_OCCUPIED,
 ROOM_TYPE_NOT_FOUND, ROOM_TYPE_CODE_EXISTS, ROOM_NUMBER_EXISTS, RATE_CODE_EXISTS,
 IDENTITY_ALREADY_EXISTS, IDENTITY_NOT_FOUND, IDENTITY_ALREADY_REPLACED,
 BILL_ALREADY_FINALIZED, BILL_NOT_FINALIZED, INVALID_BILL_AMOUNT,
-WORK_SESSION_NOT_FOUND, WORK_SESSION_ALREADY_OPEN, WORK_SESSION_ALREADY_CLOSED,
-WORK_SESSION_NOT_OPEN, WORK_SESSION_NOT_OWNED,
+ROLE_NOT_ASSIGNABLE, ACCOUNT_NOT_MANAGEABLE, CANNOT_CHANGE_OWN_ACCOUNT,
+USERNAME_ALREADY_EXISTS, USER_NOT_FOUND, INVALID_CURRENT_PASSWORD,
 INVALID_CREDENTIALS, INVALID_TOKEN, ACCOUNT_LOCKED, ACCOUNT_INACTIVE,
 VALIDATION_ERROR, MALFORMED_REQUEST
 ```

@@ -4,8 +4,11 @@ import { CustomerIdentity } from "~/entities/customer-identity.entity";
 import { PageQuery, toSkip } from "~/utils/pagination";
 import { Db, defaultDb } from "./db";
 
+export type CustomerSearchField = "all" | "name" | "phone" | "identity";
+
 export type CustomerListFilter = PageQuery & {
   search?: string;
+  searchBy?: CustomerSearchField;
   isActive?: boolean;
 };
 
@@ -44,12 +47,15 @@ export const customerRepository = {
       qb.andWhere("customer.isActive = :isActive", { isActive: f.isActive });
     }
     if (f.search) {
-      qb.andWhere(
-        `(customer.fullName ILIKE :s OR customer.phone ILIKE :s OR customer.email ILIKE :s
-          OR EXISTS (SELECT 1 FROM customer_identities ci
-                     WHERE ci.customer_id = customer.customer_id AND ci.identity_number ILIKE :s))`,
-        { s: `%${escapeLike(f.search)}%` },
-      );
+      const byIdentity = `EXISTS (SELECT 1 FROM customer_identities ci
+        WHERE ci.customer_id = customer.customer_id AND ci.identity_number ILIKE :s)`;
+      const conditions: Record<CustomerSearchField, string> = {
+        all: `(customer.fullName ILIKE :s OR customer.phone ILIKE :s OR customer.email ILIKE :s OR ${byIdentity})`,
+        name: "customer.fullName ILIKE :s",
+        phone: "customer.phone ILIKE :s",
+        identity: byIdentity,
+      };
+      qb.andWhere(conditions[f.searchBy ?? "all"], { s: `%${escapeLike(f.search)}%` });
     }
     return qb.getManyAndCount();
   },

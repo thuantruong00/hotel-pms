@@ -9,10 +9,10 @@ import {
   roomStayController,
   roomTypeController,
   userController,
-  workSessionController,
 } from "~/controllers";
 import { requireAuthentication as auth, requirePermission as can, validate } from "~/middlewares";
 import {
+  changePasswordBodySchema,
   createUserBodySchema,
   listUsersQuerySchema,
   loginBodySchema,
@@ -46,9 +46,7 @@ import {
   createRoomStayBodySchema,
   finalizeBillBodySchema,
   listRoomStaysQuerySchema,
-  listSessionStaysQuerySchema,
   markPaidBodySchema,
-  sessionIdParamSchema,
   stayActionBodySchema,
   stayIdParamSchema,
 } from "~/validators/room-stay.schema";
@@ -59,8 +57,15 @@ export const apiRouter = Router();
 // ─── Auth ─────────────────────────────────────────────────────────
 apiRouter.post("/auth/login", validate({ body: loginBodySchema }), authController.login);
 apiRouter.get("/auth/me", auth, authController.me);
+apiRouter.post(
+  "/auth/change-password",
+  auth,
+  validate({ body: changePasswordBodySchema }),
+  authController.changePassword,
+);
 
-// ─── Users (admin) ────────────────────────────────────────────────
+// ─── Accounts (root / super_admin) ───────────────────────────────
+// Actors can only manage accounts with a lower role (enforced in userService).
 const userIdParam = z.strictObject({ userId: z.uuid() });
 apiRouter.get("/users", auth, can(P.USERS_MANAGE), validate({ query: listUsersQuerySchema }), userController.list);
 apiRouter.post("/users", auth, can(P.USERS_MANAGE), validate({ body: createUserBodySchema }), userController.create);
@@ -265,28 +270,4 @@ apiRouter.post(
   can(P.BILLING_WRITE),
   validate({ params: stayIdParamSchema, body: markPaidBodySchema }),
   billingController.markPaid,
-);
-
-// ─── Work sessions ────────────────────────────────────────────────
-apiRouter.post(
-  "/work-sessions/open",
-  auth,
-  can(P.WORK_SESSIONS_WRITE),
-  validate({ body: emptyBody }),
-  workSessionController.open,
-);
-apiRouter.get("/work-sessions/current", auth, can(P.WORK_SESSIONS_READ), workSessionController.current);
-apiRouter.post(
-  "/work-sessions/:sessionId/close",
-  auth,
-  can(P.WORK_SESSIONS_WRITE),
-  validate({ params: sessionIdParamSchema, body: emptyBody }),
-  workSessionController.close,
-);
-apiRouter.get(
-  "/work-sessions/:sessionId/room-stays",
-  auth,
-  can(P.WORK_SESSIONS_READ),
-  validate({ params: sessionIdParamSchema, query: listSessionStaysQuerySchema }),
-  workSessionController.listRoomStays,
 );

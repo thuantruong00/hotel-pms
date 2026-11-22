@@ -1,9 +1,5 @@
 <template>
   <PmsLayout title="Đặt phòng / Lưu trú" kicker="RESERVATIONS">
-    <n-alert v-if="!auth.session" type="warning" :show-icon="false" style="margin-bottom: 16px">
-      Bạn chưa mở ca làm việc. Vẫn đặt phòng được, nhưng lượt đặt sẽ không gắn với ca nào.
-    </n-alert>
-
     <n-card :bordered="false">
       <n-space justify="space-between" style="margin-bottom: 12px">
         <n-radio-group v-model:value="statusFilter" @update:value="load(1)">
@@ -46,20 +42,52 @@
         <n-form-item label="Bảng giá">
           <n-select v-model:value="form.roomRateId" :options="rateOptions" :disabled="!form.roomId" placeholder="Chọn giá" />
         </n-form-item>
-        <n-form-item label="Khách">
-          <n-select
-            v-model:value="form.customerIds"
-            multiple
-            filterable
-            remote
-            clearable
-            :options="customerOptions"
-            :loading="searchingCustomers"
-            placeholder="Gõ để tìm khách (tên, SĐT, giấy tờ)"
-            @search="searchCustomers"
-            @focus="searchCustomers('')"
-          />
+        <n-form-item label="Tìm khách theo">
+          <n-radio-group v-model:value="searchBy" size="small" @update:value="searchCustomers(lastQuery)">
+            <n-radio-button value="identity">Số CCCD</n-radio-button>
+            <n-radio-button value="all">Tên / SĐT / CCCD</n-radio-button>
+            <n-radio-button value="name">Tên</n-radio-button>
+            <n-radio-button value="phone">SĐT</n-radio-button>
+          </n-radio-group>
         </n-form-item>
+        <n-form-item label="Khách">
+          <div class="customer-pick">
+            <n-select
+              v-model:value="form.customerIds"
+              multiple
+              filterable
+              remote
+              clearable
+              :options="customerOptions"
+              :loading="searchingCustomers"
+              :placeholder="searchPlaceholder"
+              @search="searchCustomers"
+              @focus="searchCustomers(lastQuery)"
+            />
+            <n-button :type="newCustomerOpen ? 'default' : 'primary'" secondary @click="toggleNewCustomer">
+              {{ newCustomerOpen ? 'Đóng' : '+ Khách mới' }}
+            </n-button>
+          </div>
+        </n-form-item>
+
+        <!-- Inline sub-form: create a guest without leaving the booking -->
+        <div v-if="newCustomerOpen" class="new-customer">
+          <p class="new-customer-title">Thêm khách mới</p>
+          <n-form label-placement="left" label-width="110" size="small">
+            <n-form-item label="Số CCCD">
+              <n-input v-model:value="newCustomer.identityNumber" placeholder="Có thể để trống" />
+            </n-form-item>
+            <n-form-item label="Họ tên"><n-input v-model:value="newCustomer.fullName" /></n-form-item>
+            <n-form-item label="SĐT"><n-input v-model:value="newCustomer.phone" /></n-form-item>
+            <n-form-item label="Loại giấy tờ">
+              <n-select v-model:value="newCustomer.identityType" :options="identityTypes" />
+            </n-form-item>
+            <n-form-item label="Quốc tịch"><n-input v-model:value="newCustomer.nationality" /></n-form-item>
+          </n-form>
+          <n-space justify="end">
+            <n-button type="primary" size="small" :loading="savingCustomer" @click="createCustomer">Lưu và chọn khách này</n-button>
+          </n-space>
+        </div>
         <n-form-item v-if="form.customerIds.length" label="Khách chính">
           <n-radio-group v-model:value="form.primaryId">
             <n-space vertical>
@@ -69,7 +97,6 @@
         </n-form-item>
         <n-form-item label="Ghi chú"><n-input v-model:value="form.notes" type="textarea" :rows="2" /></n-form-item>
       </n-form>
-      <p class="muted" style="margin: 0">Chưa có khách? Thêm ở trang Khách hàng trước.</p>
       <template #footer>
         <n-space justify="end">
           <n-button type="primary" :loading="saving" @click="createStay">Tạo đặt phòng</n-button>
@@ -182,7 +209,7 @@
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import {
-  NAlert, NButton, NCard, NCheckbox, NDataTable, NDatePicker, NDescriptions, NDescriptionsItem, NDivider,
+  NButton, NCard, NCheckbox, NDataTable, NDatePicker, NDescriptions, NDescriptionsItem, NDivider,
   NDrawer, NDrawerContent, NForm, NFormItem, NInput, NInputNumber, NModal, NRadio, NRadioButton, NRadioGroup,
   NSelect, NSpace, NTag, useDialog, useMessage,
 } from 'naive-ui'
@@ -190,9 +217,7 @@ import PmsLayout from '../layouts/PmsLayout.vue'
 import { errorText, get, post } from '../api/client'
 import type { Bill, Customer, Paged, Room, RoomRate, RoomStay } from '../api/types'
 import { fmtDateTime, fmtMoney, pricingTypeLabel, stayStatusLabel } from '../utils/format'
-import { useAuthStore } from '../stores/auth'
 
-const auth = useAuthStore()
 const message = useMessage()
 const dialog = useDialog()
 const loading = ref(false)
@@ -244,20 +269,112 @@ const customerOptions = ref<SelectOption[]>([])
 const searchingCustomers = ref(false)
 const customerName = (id: string) => knownCustomers.get(id)?.fullName || '(chưa có tên)'
 
+type SearchBy = 'identity' | 'all' | 'name' | 'phone'
+const searchBy = ref<SearchBy>('identity')
+const lastQuery = ref('')
+const searchPlaceholder = computed(
+  () =>
+    ({
+      identity: 'Nhập số CCCD để tìm khách cũ',
+      all: 'Gõ tên, SĐT hoặc số CCCD',
+      name: 'Gõ tên khách',
+      phone: 'Gõ số điện thoại',
+    })[searchBy.value],
+)
+
+const customerLabel = (c: Customer) => {
+  const id = c.identities?.find((i) => i.status === 'active')
+  return [c.fullName || '(chưa có tên)', c.phone, id && `CCCD ${id.identityNumber}`].filter(Boolean).join(' · ')
+}
+
+function rebuildCustomerOptions(resultIds: string[]) {
+  const ids = new Set([...resultIds, ...form.customerIds])
+  customerOptions.value = [...ids]
+    .filter((id) => knownCustomers.has(id))
+    .map((id) => ({ value: id, label: customerLabel(knownCustomers.get(id)!) }))
+}
+
 async function searchCustomers(q: string) {
+  lastQuery.value = q
   searchingCustomers.value = true
   try {
-    const res = await get<Paged<Customer>>('/customers', { search: q.trim() || undefined, limit: 20, isActive: true })
-    res.items.forEach((c) => knownCustomers.set(c.customerId, c))
-    const ids = new Set([...res.items.map((c) => c.customerId), ...form.customerIds])
-    customerOptions.value = [...ids].map((id) => {
-      const c = knownCustomers.get(id)!
-      return { value: id, label: `${c.fullName || '(chưa có tên)'}${c.phone ? ` · ${c.phone}` : ''}` }
+    const res = await get<Paged<Customer>>('/customers', {
+      search: q.trim() || undefined,
+      searchBy: searchBy.value,
+      limit: 20,
+      isActive: true,
     })
+    res.items.forEach((c) => knownCustomers.set(c.customerId, c))
+    rebuildCustomerOptions(res.items.map((c) => c.customerId))
   } catch (e) {
     message.error(errorText(e))
   } finally {
     searchingCustomers.value = false
+  }
+}
+
+// ─── Inline new customer ──────────────────────────────────────────
+const identityTypes = [
+  { label: 'CCCD', value: 'citizen_id' },
+  { label: 'Hộ chiếu', value: 'passport' },
+  { label: 'Bằng lái', value: 'driver_license' },
+]
+const newCustomerOpen = ref(false)
+const savingCustomer = ref(false)
+const newCustomer = reactive({ fullName: '', phone: '', identityType: 'citizen_id', identityNumber: '', nationality: 'VN' })
+
+function toggleNewCustomer() {
+  newCustomerOpen.value = !newCustomerOpen.value
+  if (!newCustomerOpen.value) return
+  // Reuse what was just typed in the search box so it is not entered twice.
+  const q = lastQuery.value.trim()
+  const looksLikeId = /^[0-9A-Za-z]{6,}$/.test(q) && /\d/.test(q)
+  const looksLikePhone = /^[0-9+().\s-]{8,}$/.test(q)
+  Object.assign(newCustomer, {
+    fullName: searchBy.value === 'name' || (searchBy.value === 'all' && !/\d/.test(q)) ? q : '',
+    phone: searchBy.value === 'phone' ? q : '',
+    identityNumber: searchBy.value === 'identity' || (searchBy.value === 'all' && looksLikeId && !looksLikePhone) ? q : '',
+    identityType: 'citizen_id',
+    nationality: 'VN',
+  })
+}
+
+function selectCustomer(c: Customer) {
+  knownCustomers.set(c.customerId, c)
+  if (!form.customerIds.includes(c.customerId)) form.customerIds = [...form.customerIds, c.customerId]
+  rebuildCustomerOptions([])
+}
+
+async function createCustomer() {
+  const orNull = (v: string) => v.trim() || null
+  savingCustomer.value = true
+  try {
+    const body: Record<string, unknown> = { fullName: orNull(newCustomer.fullName), phone: orNull(newCustomer.phone) }
+    if (newCustomer.identityNumber.trim()) {
+      body.identity = {
+        identityType: newCustomer.identityType,
+        identityNumber: newCustomer.identityNumber.trim(),
+        nationality: orNull(newCustomer.nationality),
+      }
+    }
+    const created = await post<Customer>('/customers', body)
+    selectCustomer(created)
+    message.success('Đã thêm và chọn khách')
+    newCustomerOpen.value = false
+  } catch (e) {
+    // The ID already belongs to a guest: select that guest instead of failing.
+    const err = (e as { response?: { data?: { error?: { code?: string; details?: { customerId?: string } } } } })
+      .response?.data?.error
+    if (err?.code === 'IDENTITY_ALREADY_EXISTS' && err.details?.customerId) {
+      const existing = await get<Customer>(`/customers/${err.details.customerId}`)
+      selectCustomer(existing)
+      message.info(`Số giấy tờ đã có trong hệ thống, đã chọn khách ${existing.fullName || ''}`)
+      newCustomerOpen.value = false
+    } else {
+      message.error(errorText(e))
+    }
+  } finally {
+    savingCustomer.value = false
   }
 }
 
@@ -281,6 +398,8 @@ function openCreate() {
   start.setMinutes(0, 0, 0)
   start.setHours(start.getHours() + 1)
   Object.assign(form, { range: [start.getTime(), start.getTime() + 2 * 3600e3], roomId: null, roomRateId: null, customerIds: [], primaryId: null, notes: '' })
+  lastQuery.value = ''
+  newCustomerOpen.value = false
   createOpen.value = true
   findRooms()
 }
@@ -326,7 +445,6 @@ async function createStay() {
       plannedCheckInAt: new Date(form.range[0]).toISOString(),
       plannedCheckOutAt: new Date(form.range[1]).toISOString(),
       customers: form.customerIds.map((id) => ({ customerId: id, isPrimary: id === primaryId })),
-      ...(auth.session ? { sessionId: auth.session.sessionId } : {}),
       notes: form.notes.trim() || null,
     })
     message.success(`Đã đặt phòng ${res.reservationCode}`)
@@ -425,4 +543,8 @@ onMounted(() => load(1))
 <style scoped>
 .guest-row { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
 .stay-actions { display: flex; gap: 8px; margin: 16px 0; }
+.customer-pick { display: flex; gap: 8px; width: 100%; }
+.customer-pick .n-select { flex: 1; min-width: 0; }
+.new-customer { margin: -8px 0 16px 120px; padding: 12px 16px; border: 1px dashed #b9e2cf; border-radius: 8px; background: #f6fbf8; }
+.new-customer-title { margin: 0 0 8px; font-weight: 600; color: #0b5a3f; }
 </style>

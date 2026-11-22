@@ -1,11 +1,21 @@
 export type Paged<T> = { items: T[]; page: number; limit: number; total: number }
 
-export type AuthUser = {
+export type Role = 'root' | 'super_admin' | 'admin' | 'staff'
+
+export type PageKey = 'dashboard' | 'stays' | 'customers' | 'rooms' | 'accounts' | 'change-password'
+
+export type Account = {
   userId: string
   username: string
   displayName: string | null
-  role: 'staff' | 'manager' | 'admin'
-  status: string
+  role: Role
+  status: 'active' | 'inactive' | 'locked'
+}
+
+/** Signed-in user with the pages and permissions configured for their role. */
+export type AuthUser = Account & {
+  pages: PageKey[]
+  permissions: string[]
 }
 
 export type RoomType = {
@@ -117,12 +127,4 @@ export type Bill = {
     penaltyAmount: string
     totalAmount: string
   } | null
-}
-
-export type WorkSession = {
-  sessionId: string
-  userId: string
-  startedAt: string
-  endedAt: string | null
-  status: 'open' | 'closed'
 }

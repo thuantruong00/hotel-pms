@@ -14,7 +14,6 @@ import { paged } from "~/utils/pagination";
 import { AuthUser } from "./auth.service";
 import { calculateStayRoomCharge } from "./billing.service";
 import { assertValidRange } from "./room.service";
-import { workSessionService } from "./work-session.service";
 
 export type StayCustomerInput = { customerId: string; isPrimary?: boolean };
 
@@ -24,7 +23,6 @@ export type CreateRoomStayInput = {
   plannedCheckInAt: Date;
   plannedCheckOutAt: Date;
   customers: StayCustomerInput[];
-  sessionId?: string;
   notes?: string | null;
 };
 
@@ -87,8 +85,8 @@ export const roomStayService = {
     assertUniqueCustomers(input.customers);
     assertSinglePrimary(input.customers, true);
 
-    const sessionId = await workSessionService.resolveForNewStay(input.sessionId, user);
-
+    // Signed-in users operate directly (no shift open/close flow); the stay
+    // records who created it.
     const stay = await runInTransaction(async (db) => {
       // Locking the room serializes concurrent reservations of the same room.
       const room = await roomRepository.findByIdForUpdate(input.roomId, db);
@@ -122,7 +120,6 @@ export const roomStayService = {
         {
           roomId: room.roomId,
           ratePlanId: rate.ratePlanId,
-          sessionId,
           createdByUserId: user.userId,
           reservationCode: newReservationCode(),
           plannedCheckInAt: input.plannedCheckInAt,

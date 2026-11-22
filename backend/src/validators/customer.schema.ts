@@ -63,6 +63,8 @@ export const addIdentityBodySchema = z
 export const listCustomersQuerySchema = z.strictObject({
   ...paginationQuery,
   search: z.string().trim().min(1).max(100).optional(),
+  /** Restricts `search` to one field; `identity` matches the document number. */
+  searchBy: z.enum(["all", "name", "phone", "identity"]).default("all"),
   isActive: queryBoolean().optional(),
 });
 

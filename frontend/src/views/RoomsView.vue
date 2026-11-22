@@ -1,14 +1,14 @@
 <template>
   <PmsLayout title="Phòng & giá" kicker="ROOM SETUP">
-    <n-alert v-if="!auth.isManager" type="info" :show-icon="false" style="margin-bottom: 16px">
-      Bạn đang đăng nhập với vai trò nhân viên: chỉ xem được, không tạo/sửa loại phòng, giá, phòng.
+    <n-alert v-if="!canEditTypes && !canEditRates && !canEditRooms" type="info" :show-icon="false" style="margin-bottom: 16px">
+      Role của bạn chỉ được xem trang này, không tạo/sửa loại phòng, giá hay phòng.
     </n-alert>
 
     <div class="rooms-grid">
       <!-- Room types -->
       <n-card title="Loại phòng" :bordered="false">
         <template #header-extra>
-          <n-button v-if="auth.isManager" size="small" type="primary" @click="typeModal = true">+ Thêm</n-button>
+          <n-button v-if="canEditTypes" size="small" type="primary" @click="typeModal = true">+ Thêm</n-button>
         </template>
         <n-data-table
           :columns="typeColumns"
@@ -23,7 +23,7 @@
       <!-- Rates of the selected type -->
       <n-card :title="selectedType ? `Bảng giá: ${selectedType.name}` : 'Bảng giá'" :bordered="false">
         <template #header-extra>
-          <n-button v-if="auth.isManager && selectedType" size="small" type="primary" @click="openRateModal">+ Thêm giá</n-button>
+          <n-button v-if="canEditRates && selectedType" size="small" type="primary" @click="openRateModal">+ Thêm giá</n-button>
         </template>
         <n-empty v-if="!selectedType" description="Chọn một loại phòng để xem giá" />
         <n-data-table v-else :columns="rateColumns" :data="rates" size="small" :bordered="false" />
@@ -33,7 +33,7 @@
     <!-- Rooms -->
     <n-card title="Danh sách phòng" :bordered="false" style="margin-top: 16px">
       <template #header-extra>
-        <n-button v-if="auth.isManager" size="small" type="primary" :disabled="!roomTypes.length" @click="openRoomModal">+ Thêm phòng</n-button>
+        <n-button v-if="canEditRooms" size="small" type="primary" :disabled="!roomTypes.length" @click="openRoomModal">+ Thêm phòng</n-button>
       </template>
       <n-data-table :columns="roomColumns" :data="rooms" size="small" :bordered="false" />
     </n-card>
@@ -125,6 +125,9 @@ import { fmtMoney, pricingTypeLabel, roomStatusLabel } from '../utils/format'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
+const canEditTypes = computed(() => auth.can('room-types.write'))
+const canEditRates = computed(() => auth.can('room-rates.write'))
+const canEditRooms = computed(() => auth.can('rooms.write'))
 const message = useMessage()
 const saving = ref(false)
 
@@ -166,7 +169,7 @@ const roomColumns: DataTableColumns<Room> = [
     title: 'Trạng thái',
     key: 'status',
     render: (r) =>
-      auth.isManager
+      canEditRooms.value
         ? h(NSelect, {
             value: r.status,
             options: statusOptions,
