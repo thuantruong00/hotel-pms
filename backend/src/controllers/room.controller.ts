@@ -24,6 +24,11 @@ export const roomTypeController = {
       "Room type updated successfully",
     );
   }),
+
+  remove: asyncHandler(async (req: Request, res: Response) => {
+    await roomTypeService.remove(req.params.roomTypeId);
+    res.status(204).send();
+  }),
 };
 
 export const roomRateController = {
@@ -52,6 +57,11 @@ export const roomRateController = {
       await roomRateService.update(req.params.rateId, req.body),
       "Room rate updated successfully",
     );
+  }),
+
+  remove: asyncHandler(async (req: Request, res: Response) => {
+    await roomRateService.remove(req.params.rateId);
+    res.status(204).send();
   }),
 };
 

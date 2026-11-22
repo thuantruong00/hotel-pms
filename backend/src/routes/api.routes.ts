@@ -46,7 +46,6 @@ import {
   createRoomStayBodySchema,
   finalizeBillBodySchema,
   listRoomStaysQuerySchema,
-  markPaidBodySchema,
   stayActionBodySchema,
   stayIdParamSchema,
 } from "~/validators/room-stay.schema";
@@ -136,6 +135,13 @@ apiRouter.patch(
   validate({ params: roomTypeIdParamSchema, body: updateRoomTypeBodySchema }),
   roomTypeController.update,
 );
+apiRouter.delete(
+  "/room-types/:roomTypeId",
+  auth,
+  can(P.ROOM_TYPES_WRITE),
+  validate({ params: roomTypeIdParamSchema }),
+  roomTypeController.remove,
+);
 apiRouter.get(
   "/room-types/:roomTypeId/rates",
   auth,
@@ -163,6 +169,13 @@ apiRouter.patch(
   can(P.ROOM_RATES_WRITE),
   validate({ params: roomRateIdParamSchema, body: updateRoomRateBodySchema }),
   roomRateController.update,
+);
+apiRouter.delete(
+  "/room-rates/:rateId",
+  auth,
+  can(P.ROOM_RATES_WRITE),
+  validate({ params: roomRateIdParamSchema }),
+  roomRateController.remove,
 );
 
 // ─── Rooms ────────────────────────────────────────────────────────
@@ -258,16 +271,9 @@ apiRouter.get(
   billingController.getBill,
 );
 apiRouter.post(
-  "/room-stays/:stayId/bill/finalize",
+  "/room-stays/:stayId/bill/checkout-and-pay",
   auth,
   can(P.BILLING_WRITE),
   validate({ params: stayIdParamSchema, body: finalizeBillBodySchema }),
-  billingController.finalize,
-);
-apiRouter.post(
-  "/room-stays/:stayId/bill/mark-paid",
-  auth,
-  can(P.BILLING_WRITE),
-  validate({ params: stayIdParamSchema, body: markPaidBodySchema }),
-  billingController.markPaid,
+  billingController.checkoutAndPay,
 );

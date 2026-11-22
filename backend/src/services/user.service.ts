@@ -112,6 +112,11 @@ export const userService = {
   /** Creates the root account used for initial setup (INIT=1) when none exists. */
   async ensureInitialRoot(username: string, password: string) {
     if ((await userRepository.countByRole(UserRole.ROOT)) > 0) return null;
+
+    // Keep startup idempotent when the configured bootstrap username already
+    // belongs to an existing account with another role.
+    if (await userRepository.findByUsername(username)) return null;
+
     return this.create({ username, password, role: UserRole.ROOT, displayName: "Root" }, null);
   },
 };

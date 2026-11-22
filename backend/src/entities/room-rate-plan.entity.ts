@@ -12,7 +12,6 @@ import { RoomType } from "./room-type.entity";
 import { RatePricingType } from "~/utils/enum";
 
 @Entity("room_rate_plans")
-@Index(["roomTypeId", "code"], { unique: true })
 export class RoomRatePlan {
   @PrimaryGeneratedColumn("uuid", { name: "rate_plan_id" })
   ratePlanId!: string;
@@ -25,9 +24,6 @@ export class RoomRatePlan {
   })
   @JoinColumn({ name: "room_type_id" })
   roomType!: RoomType;
-
-  @Column({ type: "varchar", length: 30 })
-  code!: string;
 
   @Column({ type: "varchar", length: 100 })
   name!: string;
@@ -64,7 +60,7 @@ export class RoomRatePlan {
   @Column({ name: "check_in_grace_minutes", type: "int", default: 0 })
   checkInGraceMinutes!: number;
 
-  @Column({ name: "check_out_grace_minutes", type: "int", default: 0 })
+  @Column({ name: "check_out_grace_minutes", type: "int", default: 30 })
   checkOutGraceMinutes!: number;
 
   @Column({ name: "rounding_minutes", type: "int", default: 60 })

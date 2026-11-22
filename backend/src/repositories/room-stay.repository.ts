@@ -37,6 +37,9 @@ export const roomStayRepository = {
       .where("stay.stayId = :id", { id })
       .getOne(),
 
+  countByRatePlanId: (ratePlanId: string, db: Db = defaultDb()) =>
+    db.getRepository(RoomStay).count({ where: { ratePlanId } }),
+
   /** Returns the first active stay of the room overlapping [checkInAt, checkOutAt). */
   findOverlapping: (
     roomId: string,
